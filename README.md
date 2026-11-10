@@ -12,9 +12,11 @@ Refresh / window focus); unchanged log files are cached, so a refresh takes ~50 
 
 ## What it shows
 
-- **Spend for the range** (7D / 30D / 90D / All) with change vs the previous period,
+- **Spend for the period** (Day / Week / Month / Year / All; Day is the default, opening on today) with change vs the previous period,
   today, average per active day, a projected month total and the cache hit rate.
 - **Daily spend by project** — stacked columns with a 7-day average, plus a table view.
+  The Day view shows spend per hour instead; today is compared with yesterday up to the same hour.
+  Click a day or month column to open that day or month.
 - **Projects** — spend, share, sessions, tokens, last activity and a 30-day trend.
   Click a project (or its legend entry) to focus the whole dashboard on it.
 - **Where the money goes** — split by model and by token type (output, cache writes,
@@ -43,8 +45,9 @@ Click **Rename & group** on the Projects card. Give a folder a new name to renam
 give several folders the same name to combine them into one project. Names are saved
 in `config.json` next to `server.py`.
 
-## Months and years
+## Days, weeks, months and years
 
-Pick **Month** or **Year** in the range control and step through periods with ‹ ›.
+Pick **Day**, **Week** (Monday to Sunday), **Month** or **Year** in the range control and step
+through periods with ‹ ›.
 The year view charts spend per month. The **Months & years** table lists every month
 and year with change vs the previous period; click a row to jump to it.

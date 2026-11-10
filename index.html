@@ -220,7 +220,7 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
     <div class="controls">
       <span class="filter-chip" id="filterChip"><span class="dot" id="filterDot"></span><span id="filterName"></span><button id="clearFilter" title="Show all projects" aria-label="Clear project filter">×</button></span>
       <div class="seg" role="group" aria-label="Date range" id="range">
-        <button data-r="7">7D</button><button data-r="30">30D</button><button data-r="90">90D</button><button data-r="month">Month</button><button data-r="year">Year</button><button data-r="all">All</button>
+        <button data-r="day">Day</button><button data-r="week">Week</button><button data-r="month">Month</button><button data-r="year">Year</button><button data-r="all">All</button>
       </div>
       <div class="stepper" id="stepper"><button id="prevP" aria-label="Previous period">‹</button><span id="periodLabel"></span><button id="nextP" aria-label="Next period">›</button></div>
       <button class="btn" id="refresh" title="Re-read logs now"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3"/></svg>Refresh</button>
@@ -302,9 +302,11 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
   let RAW = null, DATA = null;
   let projColor = {}, projName = {}, projRank = {}, projMembers = {}, rawToEff = {}, sessionsById = {}, modelColor = {}, modelOrder = [];
   const store = { get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
-  let range = store.get('cc.range', '30');
-  if (!['7','30','90','month','year','all'].includes(range)) range = '30';
+  // cc.range2: bumped when Day became the default, so older saved ranges don't override it once
+  let range = store.get('cc.range2', 'day');
+  if (!['day','week','month','year','all'].includes(range)) range = 'day';
   const now0 = new Date();
+  let anchorDay, anchorWeek; // set below, once the date helpers exist
   let anchorMonth = `${now0.getFullYear()}-${String(now0.getMonth() + 1).padStart(2, '0')}`;
   let anchorYear = String(now0.getFullYear());
   let focus = null;
@@ -340,6 +342,14 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
   const addMonths = (mk, n) => { const d = parseDay(mk + '-01'); d.setMonth(d.getMonth() + n); return monthKey(d); };
   const fmtDay = s => { const d = parseDay(s); return `${MONTHS[d.getMonth()]} ${d.getDate()}`; };
   const fmtDayLong = s => { const d = parseDay(s); return `${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`; };
+  const weekStart = d => addDays(d, -((d.getDay() + 6) % 7)); // weeks start on Monday
+  const fmtWeek = wk => {
+    const a = parseDay(wk), b = addDays(a, 6);
+    return a.getMonth() === b.getMonth() ? `${fmtDay(wk)} – ${b.getDate()}` : `${fmtDay(wk)} – ${fmtDay(dayKey(b))}`;
+  };
+  const hh = h => String(h % 24).padStart(2, '0') + ':00';
+  const hourRange = h => `${hh(h)}–${hh(h + 1)}`;
+  anchorDay = dayKey(now0); anchorWeek = dayKey(weekStart(now0));
   const fmtMonth = mk => { const d = parseDay(mk + '-01'); return `${MONTHS_LONG[d.getMonth()]} ${d.getFullYear()}`; };
   const fmtTime = iso => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const ago = iso => {
@@ -446,8 +456,24 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
   function window_() {
     const today = new Date(); today.setHours(0,0,0,0);
     const tk = dayKey(today);
-    let start, end, label, prevStart, prevEnd, prevLabel;
-    if (range === 'month') {
+    let start, end, label, prevStart, prevEnd, prevLabel, prevHour;
+    const live = range === 'day' && anchorDay === tk;
+    const hourNow = live ? new Date().getHours() : 23;
+    if (range === 'day') {
+      start = end = parseDay(anchorDay);
+      prevStart = prevEnd = addDays(start, -1);
+      label = live ? 'today' : anchorDay === dayKey(addDays(today, -1)) ? 'yesterday' : fmtDayLong(anchorDay);
+      // today is compared with yesterday up to the same hour
+      if (live) { prevHour = hourNow; prevLabel = `yesterday by ${hh(hourNow + 1)}`; }
+      else prevLabel = fmtDayLong(dayKey(prevStart));
+    } else if (range === 'week') {
+      start = parseDay(anchorWeek); end = addDays(start, 6);
+      prevStart = addDays(start, -7);
+      if (today >= start && today <= end) {
+        label = 'this week';
+        prevEnd = addDays(today, -7); prevLabel = 'the same days last week';
+      } else { label = `week of ${fmtWeek(anchorWeek)}`; prevEnd = addDays(start, -1); prevLabel = 'the week before'; }
+    } else if (range === 'month') {
       start = parseDay(anchorMonth + '-01');
       end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
       label = fmtMonth(anchorMonth);
@@ -469,17 +495,13 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
       } else { prevEnd = new Date(y - 1, 11, 31); prevLabel = String(y - 1); }
     } else if (range === 'all') {
       start = parseDay(firstDay()); end = today; label = 'all time';
-    } else {
-      const n = Number(range);
-      start = addDays(today, -(n - 1)); end = today; label = `last ${n} days`;
-      prevStart = addDays(start, -n); prevEnd = addDays(start, -1); prevLabel = `previous ${n} days`;
     }
     const days = [];
     for (let d = new Date(start); d <= end; d = addDays(d, 1)) days.push(dayKey(d));
     const elapsed = days.filter(d => d <= tk);
-    const gran = range === 'year' || days.length > 120 ? 'month' : 'day';
-    return { start: dayKey(start), end: dayKey(end), days, elapsed, today: tk, label, gran,
-             prevStart: prevStart && dayKey(prevStart), prevEnd: prevEnd && dayKey(prevEnd), prevLabel };
+    const gran = range === 'day' ? 'hour' : range === 'year' || days.length > 120 ? 'month' : 'day';
+    return { start: dayKey(start), end: dayKey(end), days, elapsed, today: tk, label, gran, hourNow, live,
+             prevStart: prevStart && dayKey(prevStart), prevEnd: prevEnd && dayKey(prevEnd), prevLabel, prevHour };
   }
   const inProj = r => !focus || r[C.project] === focus;
   const sum = (rows, col) => rows.reduce((a, r) => a + r[col], 0);
@@ -495,16 +517,21 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
     const total = sum(rows, C.cost);
     let deltaHtml;
     if (win.prevStart) {
-      const prev = sum(allRows.filter(r => inProj(r) && r[C.day] >= win.prevStart && r[C.day] <= win.prevEnd), C.cost);
+      const prev = sum(allRows.filter(r => inProj(r) && r[C.day] >= win.prevStart && r[C.day] <= win.prevEnd && (win.prevHour == null || r[C.hour] <= win.prevHour)), C.cost);
       if (prev > 0) {
         const d = (total - prev) / prev;
         deltaHtml = `<span class="delta ${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '▲' : '▼'} ${pct(Math.abs(d))}</span> <span>vs ${win.prevLabel} (${money(prev)})</span>`;
-      } else deltaHtml = `<span>No spend in ${win.prevLabel}</span>`;
+      } else deltaHtml = `<span>No spend ${range === 'day' ? (win.live ? '' : 'on ') : 'in '}${win.prevLabel}</span>`;
     } else deltaHtml = `<span>Since ${fmtDay(win.start)}, ${parseDay(win.start).getFullYear()}</span>`;
 
+    const hourly = win.gran === 'hour';
     const byDay = Object.fromEntries(win.days.map(d => [d, 0]));
     rows.forEach(r => byDay[r[C.day]] += r[C.cost]);
-    const series = win.elapsed.map(d => byDay[d]);
+    const byHour = new Array(24).fill(0);
+    if (hourly) rows.forEach(r => byHour[r[C.hour]] += r[C.cost]);
+    // in the Today view the sparkline and averages work per hour instead of per day
+    const series = hourly ? byHour.slice(0, win.hourNow + 1) : win.elapsed.map(d => byDay[d]);
+    const seriesLabel = i => hourly ? `${String(i).padStart(2, '0')}–${String((i + 1) % 24).padStart(2, '0')}` : fmtDay(win.elapsed[i]); // short, so tile feet stay on one line
     const active = series.filter(v => v > 0).length;
     const todayCost = sum(allRows.filter(r => inProj(r) && r[C.day] === win.today), C.cost);
     const yday = sum(allRows.filter(r => inProj(r) && r[C.day] === dayKey(addDays(parseDay(win.today), -1))), C.cost);
@@ -536,13 +563,18 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
           <div class="value">${money(total)}</div>
           <div class="foot" style="margin-top:8px">${deltaHtml}</div>
         </div>
-        <svg class="hero-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-label="Daily spend trend">
+        <svg class="hero-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-label="${hourly ? 'Hourly' : 'Daily'} spend trend">
           <path d="${area}" fill="var(--accent)" opacity="0.10"/>
           <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
         </svg>
       </div>
-      <div class="card tile"><div class="label">Today</div><div class="value">${money(todayCost)}</div><div class="foot">${money(yday)} yesterday</div></div>
-      <div class="card tile"><div class="label">Average per active day</div><div class="value">${money(active ? total / active : 0)}</div><div class="foot">${active} of ${win.elapsed.length} days active · peak ${max > 0 ? money(max) + ' on ' + fmtDay(win.elapsed[iMax]) : '—'}</div></div>
+      ${hourly
+        ? (win.live
+            ? `<div class="card tile"><div class="label">This hour</div><div class="value">${money(byHour[win.hourNow])}</div><div class="foot">${money(yday)} all of yesterday</div></div>`
+            : `<div class="card tile"><div class="label">Busiest hour</div><div class="value">${money(max)}</div><div class="foot">${max > 0 ? seriesLabel(iMax) : 'No usage this day'}</div></div>`)
+        + `<div class="card tile"><div class="label">Average per active hour</div><div class="value">${money(active ? total / active : 0)}</div><div class="foot">${active} of ${series.length} hours active${win.live && max > 0 ? ' · peak ' + money(max) + ' at ' + seriesLabel(iMax) : ''}</div></div>`
+        : `<div class="card tile"><div class="label">Today</div><div class="value">${money(todayCost)}</div><div class="foot">${money(yday)} yesterday</div></div>
+      <div class="card tile"><div class="label">Average per active day</div><div class="value">${money(active ? total / active : 0)}</div><div class="foot">${active} of ${series.length} days active · peak ${max > 0 ? money(max) + ' on ' + seriesLabel(iMax) : '—'}</div></div>`}
       <div class="card tile"><div class="label">This month, projected</div><div class="value">${money(projected)}</div><div class="foot">${money(mtd)} so far in ${MONTHS_LONG[now.getMonth()]}</div></div>
       <div class="card tile"><div class="label">Cache hit rate</div><div class="value">${pct(hit)}</div><div class="foot">Caching saved ≈ ${money(saved)} · ${sessions} sessions</div></div>
     `;
@@ -559,7 +591,9 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
   }
 
   function buckets(win) {
-    if (win.gran === 'day') return win.days.map(d => ({ key: d, label: d === win.today ? 'Today' : fmtDay(d), long: fmtDayLong(d), future: d > win.today }));
+    if (win.gran === 'hour') return Array.from({ length: 24 }, (_, h) => { const now = win.live && h === win.hourNow; return { key: h, label: now ? 'Now' : hh(h), long: hourRange(h) + (now ? ' (so far)' : ''), future: h > win.hourNow }; });
+    const wkLabel = d => { const x = parseDay(d); return `${DOW[(x.getDay() + 6) % 7]} ${x.getDate()}`; };
+    if (win.gran === 'day') return win.days.map(d => ({ key: d, label: d === win.today ? 'Today' : range === 'week' ? wkLabel(d) : fmtDay(d), long: fmtDayLong(d), future: d > win.today }));
     const out = [];
     const tm = win.today.slice(0, 7);
     for (let m = win.start.slice(0, 7); m <= win.end.slice(0, 7); m = addMonths(m, 1)) {
@@ -571,7 +605,7 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
 
   function renderDaily(rows, win) {
     const B = buckets(win);
-    const bk = win.gran === 'day' ? (r => r[C.day]) : (r => r[C.day].slice(0, 7));
+    const bk = win.gran === 'hour' ? (r => r[C.hour]) : win.gran === 'day' ? (r => r[C.day]) : (r => r[C.day].slice(0, 7));
     const groups = {};
     const byB = Object.fromEntries(B.map(b => [b.key, {}]));
     const msgsB = Object.fromEntries(B.map(b => [b.key, 0]));
@@ -588,12 +622,12 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
     const showAvg = win.gran === 'day' && win.elapsed.length >= 14;
     const avg7 = totals.map((_, i) => { const s = totals.slice(Math.max(0, i - 6), i + 1); return s.reduce((a, c) => a + c, 0) / s.length; });
 
-    $('dailyTitle').textContent = win.gran === 'day' ? 'Daily spend by project' : 'Monthly spend by project';
+    $('dailyTitle').textContent = { hour: 'Hourly spend by project', day: 'Daily spend by project', month: 'Monthly spend by project' }[win.gran];
     $('dailyLegend').innerHTML = gOrder.map(g => `<button data-g="${esc(g)}" title="${g === '__other' ? '' : 'Focus on this project'}"><span class="dot" style="background:var(${groupColor(g)})"></span>${esc(groupName(g))}</button>`).join('')
       + (showAvg ? `<span class="item"><span class="line-key"></span>7-day average</span>` : '');
     $('dailyLegend').querySelectorAll('button[data-g]').forEach(b => b.addEventListener('click', () => { if (b.dataset.g !== '__other') setFocus(b.dataset.g); }));
     const totalAll = totals.reduce((a, c) => a + c, 0);
-    $('dailyHint').textContent = `${money(totalAll)} · ${win.gran === 'day' ? `${fmtDay(win.start)} – ${fmtDay(win.end)}` : `${fmtMonth(win.start.slice(0, 7))} – ${fmtMonth(win.end.slice(0, 7))}`}`;
+    $('dailyHint').textContent = `${money(totalAll)} · ${win.gran === 'hour' ? `${fmtDayLong(win.start)}, ${win.start.slice(0, 4)} (local time)` : win.gran === 'day' ? `${fmtDay(win.start)} – ${fmtDay(win.end)}` : `${fmtMonth(win.start.slice(0, 7))} – ${fmtMonth(win.end.slice(0, 7))}`}`;
 
     const host = $('dailyChart');
     const W = Math.max(300, host.clientWidth || 800), H = 280;
@@ -605,7 +639,7 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
     const slot = iw / B.length;
     const bw = Math.max(2, Math.min(24, slot * 0.68));
     const labelEvery = Math.ceil(B.length / Math.max(2, Math.floor(iw / 64)));
-    const todayIdx = B.findIndex(b => b.key === (win.gran === 'day' ? win.today : win.today.slice(0, 7)));
+    const todayIdx = B.findIndex(b => b.key === (win.gran === 'hour' ? (win.live ? win.hourNow : -1) : win.gran === 'day' ? win.today : win.today.slice(0, 7)));
 
     let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Stacked spend by project">`;
     ticks.forEach(t => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(t)}" y2="${y(t)}" stroke="${t === 0 ? 'var(--axis)' : 'var(--grid)'}" stroke-width="1" shape-rendering="crispEdges"/><text class="axis-text" x="${m.l - 8}" y="${y(t) + 4}" text-anchor="end">${money(t, { compact: true }).replace('.00', '')}</text>`; });
@@ -628,7 +662,7 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
       s += `<rect class="hit" x="${m.l + slot * i}" y="${m.t}" width="${slot}" height="${ih + m.b}"/></g>`;
       const isToday = i === todayIdx;
       const nearToday = todayIdx >= 0 && Math.abs(i - todayIdx) < labelEvery * 0.6 && !isToday;
-      if ((i % labelEvery === 0 && !nearToday) || (isToday && win.gran === 'day')) {
+      if ((i % labelEvery === 0 && !nearToday) || (isToday && win.gran !== 'month')) {
         s += `<text class="axis-text" x="${cx}" y="${H - 8}" text-anchor="middle" ${isToday ? 'style="fill:var(--ink-2);font-weight:600"' : ''}>${esc(b.label)}</text>`;
       }
     });
@@ -644,6 +678,17 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
     }
     s += `</svg>`;
     host.innerHTML = s;
+    // drill down: a day column opens that day, a month column opens that month
+    if (win.gran !== 'hour') host.querySelectorAll('.col-group').forEach(g => {
+      const b = B[Number(g.dataset.tip)];
+      if (b.future) return;
+      g.style.cursor = 'pointer';
+      g.addEventListener('click', () => {
+        hideTip();
+        if (win.gran === 'day') { range = 'day'; anchorDay = b.key; } else { range = 'month'; anchorMonth = b.key; }
+        store.set('cc.range2', range); render();
+      });
+    });
     bindTips(host, i => {
       i = Number(i); const b = B[i];
       const parts = gOrder.filter(g => byB[b.key][g] > 0).sort((a, c) => byB[b.key][c] - byB[b.key][a]);
@@ -656,7 +701,7 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
       const topG = gOrder.filter(g => byB[b.key][g] > 0).sort((a, c) => byB[b.key][c] - byB[b.key][a])[0];
       return `<tr><td>${esc(b.long)}</td><td class="num">${money(totals[i])}</td><td><span class="pname"><span class="dot" style="background:var(${groupColor(topG)})"></span>${esc(groupName(topG))}</span></td><td class="num">${msgsB[b.key].toLocaleString()}</td></tr>`;
     }).join('');
-    $('dailyTable').innerHTML = `<table><thead><tr><th>${win.gran === 'day' ? 'Day' : 'Month'}</th><th class="num">Spend</th><th>Top project</th><th class="num">API calls</th></tr></thead><tbody>${rowsHtml || '<tr><td colspan="4" class="muted">No usage in this range</td></tr>'}</tbody></table>`;
+    $('dailyTable').innerHTML = `<table><thead><tr><th>${{ hour: 'Hour', day: 'Day', month: 'Month' }[win.gran]}</th><th class="num">Spend</th><th>Top project</th><th class="num">API calls</th></tr></thead><tbody>${rowsHtml || '<tr><td colspan="4" class="muted">No usage in this range</td></tr>'}</tbody></table>`;
   }
 
   // --------------------------------------------------------- project table
@@ -669,8 +714,11 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
 
   function renderProjects(rowsAllProj, win) {
     const agg = {};
-    const sparkDays = win.elapsed.slice(-Math.min(30, win.elapsed.length));
-    const sparkStart = sparkDays[0];
+    // trend column: per hour in the Today view, otherwise per day (last 30 days of the range)
+    const hourly = win.gran === 'hour';
+    const sparkDays = hourly ? Array.from({ length: win.hourNow + 1 }, (_, h) => h) : win.elapsed.slice(-Math.min(30, win.elapsed.length));
+    const sparkStart = hourly ? win.start : sparkDays[0];
+    const sparkKey = hourly ? (r => r[C.hour]) : (r => r[C.day]);
     const usedModels = new Set();
     rowsAllProj.forEach(r => {
       const k = r[C.project];
@@ -680,7 +728,7 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
       const mm = a.models[r[C.model]] || (a.models[r[C.model]] = { cost: 0, msgs: 0 });
       mm.cost += r[C.cost]; mm.msgs += r[C.msgs];
       usedModels.add(r[C.model]);
-      if (r[C.day] >= sparkStart) a.spark[r[C.day]] = (a.spark[r[C.day]] || 0) + r[C.cost];
+      if (r[C.day] >= sparkStart) a.spark[sparkKey(r)] = (a.spark[sparkKey(r)] || 0) + r[C.cost];
       const last = r[C.day] + 'T' + String(r[C.hour]).padStart(2, '0');
       if (last > a.last) a.last = last;
     });
@@ -707,7 +755,7 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
         <td><svg width="${sw}" height="${sh}" viewBox="0 0 ${sw} ${sh}" aria-label="Spend trend"><path d="${sparkPath(vals, sw, sh, 2)}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg></td>
       </tr>`;
     }).join('');
-    $('projTable').innerHTML = `<thead><tr><th>Project</th><th class="num">Spend</th><th>Share · by model</th><th class="num">Sessions</th><th class="num">Tokens</th><th>Last active</th><th title="Daily spend over the last ${sparkDays.length} days of the range">Trend</th></tr></thead><tbody>${body || '<tr><td colspan="7" class="muted">No usage in this range</td></tr>'}</tbody>`;
+    $('projTable').innerHTML = `<thead><tr><th>Project</th><th class="num">Spend</th><th>Share · by model</th><th class="num">Sessions</th><th class="num">Tokens</th><th>Last active</th><th title="${hourly ? 'Hourly spend this day' : `Daily spend over the last ${sparkDays.length} days of the range`}">Trend</th></tr></thead><tbody>${body || '<tr><td colspan="7" class="muted">No usage in this range</td></tr>'}</tbody>`;
     $('projTable').querySelectorAll('tr[data-k]').forEach(tr => tr.addEventListener('click', () => setFocus(focus === tr.dataset.k ? null : tr.dataset.k)));
     bindTips($('projTable'), k => modelTip(projName[k], agg[k].models, agg[k].cost));
   }
@@ -798,8 +846,8 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
     });
     $('monthsHint').textContent = `${focus ? projName[focus] + ' · ' : ''}All time · click a month or year to view it`;
     $('monthsTable').innerHTML = `<thead><tr><th>Period</th><th class="num">Spend</th><th>Change</th><th class="num">Active days</th><th class="num">Per active day</th><th class="num">Sessions</th><th style="width:30%">Projects</th></tr></thead><tbody>${body || '<tr><td colspan="7" class="muted">No usage yet</td></tr>'}</tbody>`;
-    $('monthsTable').querySelectorAll('tr[data-m]').forEach(tr => tr.addEventListener('click', () => { range = 'month'; anchorMonth = tr.dataset.m; store.set('cc.range', range); render(); scrollTo({ top: 0, behavior: 'smooth' }); }));
-    $('monthsTable').querySelectorAll('tr[data-y]').forEach(tr => tr.addEventListener('click', () => { range = 'year'; anchorYear = tr.dataset.y; store.set('cc.range', range); render(); scrollTo({ top: 0, behavior: 'smooth' }); }));
+    $('monthsTable').querySelectorAll('tr[data-m]').forEach(tr => tr.addEventListener('click', () => { range = 'month'; anchorMonth = tr.dataset.m; store.set('cc.range2', range); render(); scrollTo({ top: 0, behavior: 'smooth' }); }));
+    $('monthsTable').querySelectorAll('tr[data-y]').forEach(tr => tr.addEventListener('click', () => { range = 'year'; anchorYear = tr.dataset.y; store.set('cc.range2', range); render(); scrollTo({ top: 0, behavior: 'smooth' }); }));
     bindTips($('monthsTable'), key => {
       const [label, a] = tips[key];
       const gs = Object.keys(a.proj).sort((x, y) => a.proj[y] - a.proj[x]);
@@ -907,10 +955,21 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
   function renderControls() {
     document.querySelectorAll('#range button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.r === range)));
     const st = $('stepper');
-    st.classList.toggle('on', range === 'month' || range === 'year');
+    st.classList.add('on');
+    if (range === 'all') { $('periodLabel').textContent = 'All'; $('prevP').disabled = $('nextP').disabled = true; }
     if (!DATA) return;
     const first = firstDay(), now = new Date();
-    if (range === 'month') {
+    if (range === 'day') {
+      const d = parseDay(anchorDay);
+      $('periodLabel').textContent = fmtDayLong(anchorDay) + (d.getFullYear() !== now.getFullYear() ? `, ${d.getFullYear()}` : '');
+      $('prevP').disabled = anchorDay <= first;
+      $('nextP').disabled = anchorDay >= dayKey(now);
+    } else if (range === 'week') {
+      const y = parseDay(anchorWeek).getFullYear();
+      $('periodLabel').textContent = fmtWeek(anchorWeek) + (y !== now.getFullYear() ? `, ${y}` : '');
+      $('prevP').disabled = anchorWeek <= dayKey(weekStart(parseDay(first)));
+      $('nextP').disabled = anchorWeek >= dayKey(weekStart(now));
+    } else if (range === 'month') {
       $('periodLabel').textContent = fmtMonth(anchorMonth);
       $('prevP').disabled = anchorMonth <= first.slice(0, 7);
       $('nextP').disabled = anchorMonth >= monthKey(now);
@@ -971,14 +1030,23 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
 
   // --------------------------------------------------------------- wiring
   document.querySelectorAll('#range button').forEach(b => b.addEventListener('click', () => {
-    range = b.dataset.r; store.set('cc.range', range);
+    range = b.dataset.r; store.set('cc.range2', range);
     const n = new Date();
-    if (range === 'month' && !b._kept) anchorMonth = monthKey(n);
+    if (range === 'day') anchorDay = dayKey(n);
+    if (range === 'week') anchorWeek = dayKey(weekStart(n));
+    if (range === 'month') anchorMonth = monthKey(n);
     if (range === 'year') anchorYear = String(n.getFullYear());
     render();
   }));
-  $('prevP').addEventListener('click', () => { if (range === 'month') anchorMonth = addMonths(anchorMonth, -1); else anchorYear = String(+anchorYear - 1); render(); });
-  $('nextP').addEventListener('click', () => { if (range === 'month') anchorMonth = addMonths(anchorMonth, 1); else anchorYear = String(+anchorYear + 1); render(); });
+  function step(n) {
+    if (range === 'day') anchorDay = dayKey(addDays(parseDay(anchorDay), n));
+    else if (range === 'week') anchorWeek = dayKey(addDays(parseDay(anchorWeek), 7 * n));
+    else if (range === 'month') anchorMonth = addMonths(anchorMonth, n);
+    else if (range === 'year') anchorYear = String(+anchorYear + n);
+    render();
+  }
+  $('prevP').addEventListener('click', () => step(-1));
+  $('nextP').addEventListener('click', () => step(1));
   $('clearFilter').addEventListener('click', () => setFocus(null));
   $('refresh').addEventListener('click', load);
   $('manage').addEventListener('click', openManager);
