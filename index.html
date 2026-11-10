@@ -1,0 +1,1005 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Code Spend</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a78d6'/%3E%3Crect x='7' y='16' width='4' height='9' rx='1.5' fill='white'/%3E%3Crect x='14' y='10' width='4' height='15' rx='1.5' fill='white'/%3E%3Crect x='21' y='6' width='4' height='19' rx='1.5' fill='white'/%3E%3C/svg%3E">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f4f3ef;
+  --surface: #fcfcfb;
+  --surface-2: #f4f3ef;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.09);
+  --shadow: 0 1px 2px rgba(11,11,11,0.04), 0 4px 16px rgba(11,11,11,0.04);
+  --good: #006300;
+  --bad: #b8302f;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --other: #b4b2a9;
+  --m1: #1f1e1b; --m2: #5d5b55; --m3: #8f8c84; --m4: #b9b6ad; --m5: #d6d3ca;
+  --heat: 42,120,214;
+  --accent: #2a78d6;
+  --chip: #ecebe6;
+  --tip-bg: #0b0b0b; --tip-ink: #f0efec; --tip-muted: #a9a79f;
+  --backdrop: rgba(11,11,11,0.28);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.08);
+    --shadow: none; --good: #0ca30c; --bad: #e66767;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    --other: #5f5e59;
+    --m1: #f0efec; --m2: #c3c2b7; --m3: #96948b; --m4: #6b6a64; --m5: #4a4945;
+    --heat: 57,135,229; --accent: #3987e5; --chip: #2c2c2a;
+    --tip-bg: #f0efec; --tip-ink: #0b0b0b; --tip-muted: #52514e;
+    --backdrop: rgba(0,0,0,0.6);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+  --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.08);
+  --shadow: none; --good: #0ca30c; --bad: #e66767;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+  --other: #5f5e59;
+  --m1: #f0efec; --m2: #c3c2b7; --m3: #96948b; --m4: #6b6a64; --m5: #4a4945;
+  --heat: 57,135,229; --accent: #3987e5; --chip: #2c2c2a;
+  --tip-bg: #f0efec; --tip-ink: #0b0b0b; --tip-muted: #52514e;
+  --backdrop: rgba(0,0,0,0.6);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1280px; margin: 0 auto; padding: 28px 24px 48px; }
+@media (max-width: 640px) { .wrap { padding: 20px 16px 40px; } }
+
+header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+h1 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 0; }
+.sub { color: var(--muted); font-size: 13px; margin-top: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.live { width: 8px; height: 8px; border-radius: 50%; background: var(--s3); animation: pulse 2.4s infinite; flex: none; }
+.live.stale { background: var(--muted); animation: none; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(27,175,122,.45);} 70% { box-shadow: 0 0 0 7px rgba(27,175,122,0);} 100% { box-shadow: 0 0 0 0 rgba(27,175,122,0);} }
+
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.seg { display: inline-flex; background: var(--chip); border-radius: 10px; padding: 3px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; color: var(--ink-2); font: inherit; font-size: 13px; font-weight: 550; padding: 6px 11px; border-radius: 8px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.stepper { display: none; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; height: 34px; }
+.stepper.on { display: inline-flex; }
+.stepper button { border: 0; background: transparent; color: var(--ink-2); font: inherit; font-size: 16px; width: 30px; height: 100%; cursor: pointer; border-radius: 9px; }
+.stepper button:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
+.stepper button:disabled { opacity: .3; cursor: default; }
+.stepper span { font-size: 13px; font-weight: 600; min-width: 112px; text-align: center; font-variant-numeric: tabular-nums; }
+.btn { border: 1px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; font-weight: 550; padding: 7px 12px; border-radius: 10px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.btn:hover { background: var(--surface-2); }
+.btn svg { width: 14px; height: 14px; }
+.btn.primary { background: var(--ink); color: var(--surface); border-color: transparent; }
+.btn.primary:hover { opacity: .88; background: var(--ink); }
+.btn.spin svg { animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.filter-chip { display: none; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 5px 6px 5px 12px; font-size: 13px; font-weight: 550; }
+.filter-chip.on { display: inline-flex; }
+.filter-chip button { border: 0; background: var(--chip); color: var(--ink-2); width: 22px; height: 22px; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 1; }
+.dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 20px; min-width: 0; }
+.card h2 { font-size: 15px; font-weight: 620; margin: 0; }
+.card .hint, .hint { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.link { border: 0; background: none; color: var(--ink-2); font: inherit; font-size: 12.5px; cursor: pointer; padding: 4px 8px; border-radius: 6px; text-decoration: underline; text-decoration-color: var(--axis); text-underline-offset: 3px; }
+.link:hover { background: var(--surface-2); }
+
+.kpis { display: grid; grid-template-columns: 2fr repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+@media (max-width: 1080px) { .kpis { grid-template-columns: repeat(2, 1fr); } .kpis .hero { grid-column: 1 / -1; } }
+.tile { padding: 18px 20px; display: flex; flex-direction: column; gap: 4px; }
+.tile .label { color: var(--ink-2); font-size: 13px; font-weight: 520; }
+.tile .value { font-size: 28px; font-weight: 640; letter-spacing: -0.02em; line-height: 1.15; }
+.tile .foot { color: var(--muted); font-size: 12.5px; }
+.hero { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: end; }
+.hero .value { font-size: 52px; letter-spacing: -0.03em; line-height: 1; margin-top: 4px; }
+.delta { font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 3px; }
+.delta.up { color: var(--bad); } .delta.down { color: var(--good); }
+.hero-spark { width: 100%; height: 72px; display: block; }
+
+.grid2 { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; margin-top: 14px; }
+.grid2.even { grid-template-columns: 1fr 1fr; }
+@media (max-width: 980px) { .grid2, .grid2.even { grid-template-columns: 1fr; } }
+.mt { margin-top: 14px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--ink-2); margin-bottom: 10px; }
+.legend button { all: unset; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; padding: 2px 4px; margin: -2px -4px; }
+.legend button:hover { background: var(--surface-2); color: var(--ink); }
+.legend .item { display: inline-flex; align-items: center; gap: 6px; }
+.legend .line-key { width: 14px; height: 2px; background: var(--ink-2); border-radius: 2px; }
+
+svg text { font-family: inherit; }
+.chart { width: 100%; display: block; overflow: visible; }
+.axis-text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.hit { fill: transparent; }
+.col-group:hover .hl { fill: var(--surface-2); }
+
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-size: 12px; font-weight: 550; color: var(--muted); padding: 0 8px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+td { padding: 9px 8px; border-bottom: 1px solid var(--grid); vertical-align: middle; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+th.num, td.num { text-align: right; }
+tbody tr.click { cursor: pointer; }
+tbody tr.click:hover td { background: var(--surface-2); }
+tbody tr.sel td { background: var(--surface-2); box-shadow: inset 0 0 0 0 transparent; }
+tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+tr.year td { font-weight: 650; border-top: 1px solid var(--axis); }
+tr.year:first-child td { border-top: 0; }
+tr.month td:first-child { padding-left: 22px; }
+.pname { display: flex; align-items: center; gap: 8px; font-weight: 560; max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+.share { display: flex; align-items: center; gap: 8px; min-width: 112px; }
+.share .bar { flex: 1; height: 8px; display: flex; gap: 2px; }
+.share .bar i { display: block; height: 100%; border-radius: 4px; min-width: 2px; }
+.share .bar .rest { flex: 1; background: transparent; }
+.share span { width: 38px; text-align: right; color: var(--ink-2); font-size: 12.5px; }
+.mixbar { height: 8px; display: flex; gap: 2px; min-width: 120px; }
+.mixbar i { display: block; height: 100%; border-radius: 4px; min-width: 2px; }
+.muted { color: var(--muted); }
+.scroll-x { overflow-x: auto; margin: 0 -8px; padding: 0 8px; }
+
+.segbar { display: flex; gap: 2px; height: 28px; margin: 6px 0 10px; }
+.segbar div { border-radius: 4px; font-size: 12px; font-weight: 600; display: flex; align-items: center; padding-left: 8px; overflow: hidden; white-space: nowrap; min-width: 0; }
+.seg-title { font-size: 13px; font-weight: 560; color: var(--ink-2); margin-top: 6px; }
+.seg-legend { display: grid; grid-template-columns: 1fr auto auto; gap: 6px 16px; font-size: 13px; font-variant-numeric: tabular-nums; margin-bottom: 18px; }
+.seg-legend .n { display: flex; align-items: center; gap: 8px; color: var(--ink); }
+.seg-legend .v { text-align: right; font-weight: 560; }
+.seg-legend .p { text-align: right; color: var(--muted); width: 44px; }
+.facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; border-top: 1px solid var(--grid); padding-top: 14px; }
+.facts .k { font-size: 12px; color: var(--muted); }
+.facts .v { font-size: 17px; font-weight: 620; }
+
+.sessions { display: flex; flex-direction: column; }
+.srow { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--grid); }
+.srow:last-child { border-bottom: 0; }
+.srow .t { font-weight: 560; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srow .c { font-weight: 620; text-align: right; font-variant-numeric: tabular-nums; }
+.srow .m { color: var(--muted); font-size: 12.5px; display: flex; gap: 6px; align-items: center; overflow: hidden; white-space: nowrap; }
+.srow .bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--grid); margin-top: 6px; overflow: hidden; }
+.srow .bar i { display: block; height: 100%; border-radius: 2px; }
+
+.tip { position: fixed; pointer-events: none; z-index: 30; background: var(--tip-bg); color: var(--tip-ink); border-radius: 10px; padding: 10px 12px; font-size: 12.5px; min-width: 170px; max-width: 300px; box-shadow: 0 8px 24px rgba(0,0,0,.18); opacity: 0; transition: opacity .1s; font-variant-numeric: tabular-nums; }
+.tip.on { opacity: 1; }
+.tip .th { font-weight: 650; margin-bottom: 6px; display: flex; justify-content: space-between; gap: 12px; }
+.tip .tr { display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 1px 0; }
+.tip .tr .l { display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tip .tm { color: var(--tip-muted); }
+
+dialog { border: 1px solid var(--border); border-radius: 18px; padding: 0; background: var(--surface); color: var(--ink); width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 48px); box-shadow: 0 24px 64px rgba(0,0,0,.25); }
+dialog::backdrop { background: var(--backdrop); }
+dialog form { display: flex; flex-direction: column; max-height: calc(100vh - 50px); }
+.dlg-head { padding: 20px 22px 12px; }
+.dlg-head h2 { font-size: 17px; margin: 0; font-weight: 650; }
+.dlg-body { overflow: auto; padding: 4px 22px 8px; }
+.dlg-foot { display: flex; gap: 8px; justify-content: space-between; align-items: center; padding: 14px 22px; border-top: 1px solid var(--grid); }
+.pm-row { display: grid; grid-template-columns: 1fr 72px 220px; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--grid); }
+.pm-row:last-child { border-bottom: 0; }
+.pm-row .nm { font-weight: 560; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-row .path { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.pm-row .cost { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.pm-row input { width: 100%; font: inherit; font-size: 13.5px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; }
+.pm-row input:focus { outline: 2px solid var(--accent); outline-offset: -1px; background: var(--surface); }
+.pm-row .grp { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+@media (max-width: 600px) { .pm-row { grid-template-columns: 1fr 64px; } .pm-row .in { grid-column: 1 / -1; } }
+
+.empty { padding: 40px 20px; text-align: center; color: var(--muted); }
+footer { color: var(--muted); font-size: 12px; margin-top: 22px; line-height: 1.6; }
+footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; border-radius: 4px; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Claude Code spend</h1>
+      <div class="sub"><span class="live" id="live"></span><span id="status">Loading usage from this machine…</span></div>
+    </div>
+    <div class="controls">
+      <span class="filter-chip" id="filterChip"><span class="dot" id="filterDot"></span><span id="filterName"></span><button id="clearFilter" title="Show all projects" aria-label="Clear project filter">×</button></span>
+      <div class="seg" role="group" aria-label="Date range" id="range">
+        <button data-r="7">7D</button><button data-r="30">30D</button><button data-r="90">90D</button><button data-r="month">Month</button><button data-r="year">Year</button><button data-r="all">All</button>
+      </div>
+      <div class="stepper" id="stepper"><button id="prevP" aria-label="Previous period">‹</button><span id="periodLabel"></span><button id="nextP" aria-label="Next period">›</button></div>
+      <button class="btn" id="refresh" title="Re-read logs now"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3"/></svg>Refresh</button>
+    </div>
+  </header>
+
+  <div id="app">
+    <section class="kpis" id="kpis"></section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><h2 id="dailyTitle">Daily spend by project</h2><div class="hint" id="dailyHint"></div></div>
+        <button class="link" id="dailyToggle">Show table</button>
+      </div>
+      <div class="legend" id="dailyLegend"></div>
+      <div id="dailyChart"></div>
+      <div id="dailyTable" class="hidden scroll-x"></div>
+    </section>
+
+    <div class="grid2">
+      <section class="card">
+        <div class="card-head">
+          <div><h2>Projects</h2><div class="hint">Click a project to focus the dashboard on it · bars split spend by model</div></div>
+          <button class="link" id="manage">Rename &amp; group</button>
+        </div>
+        <div class="legend" id="modelLegend"></div>
+        <div class="scroll-x"><table id="projTable"></table></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><div><h2>Where the money goes</h2><div class="hint" id="mixHint"></div></div></div>
+        <div id="mix"></div>
+      </section>
+    </div>
+
+    <section class="card mt">
+      <div class="card-head">
+        <div><h2>Months &amp; years</h2><div class="hint" id="monthsHint">All time · click a month or year to view it</div></div>
+      </div>
+      <div class="scroll-x"><table id="monthsTable"></table></div>
+    </section>
+
+    <div class="grid2 even">
+      <section class="card">
+        <div class="card-head"><div><h2>When you spend</h2><div class="hint">Cost by weekday and hour of day (local time)</div></div></div>
+        <div id="heat"></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><div><h2>Most expensive sessions</h2><div class="hint" id="sessHint"></div></div></div>
+        <div class="sessions" id="sessions"></div>
+      </section>
+    </div>
+  </div>
+
+  <footer id="foot"></footer>
+</div>
+<div class="tip" id="tip"></div>
+
+<dialog id="pm">
+  <form method="dialog" id="pmForm">
+    <div class="dlg-head">
+      <h2>Rename &amp; group projects</h2>
+      <div class="hint">Type a new name for any folder. Folders with the same name are combined into one project. Leave a field empty to use the folder name.</div>
+    </div>
+    <div class="dlg-body" id="pmList"></div>
+    <datalist id="pmNames"></datalist>
+    <div class="dlg-foot">
+      <button type="button" class="link" id="pmReset">Clear all names</button>
+      <div style="display:flex;gap:8px"><button type="button" class="btn" id="pmCancel">Cancel</button><button type="submit" class="btn primary" id="pmSave">Save</button></div>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  // ------------------------------------------------------------------ state
+  const C = { day:0, hour:1, project:2, model:3, session:4, msgs:5, in:6, out:7, cr:8, cw:9, cost:10, c_in:11, c_out:12, c_cr:13, c_cw:14 };
+  const SLOTS = ['--s1','--s2','--s3','--s4','--s5','--s6','--s7','--s8'];
+  const MSTEPS = ['--m1','--m2','--m3','--m4','--m5'];
+  let RAW = null, DATA = null;
+  let projColor = {}, projName = {}, projRank = {}, projMembers = {}, rawToEff = {}, sessionsById = {}, modelColor = {}, modelOrder = [];
+  const store = { get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+  let range = store.get('cc.range', '30');
+  if (!['7','30','90','month','year','all'].includes(range)) range = '30';
+  const now0 = new Date();
+  let anchorMonth = `${now0.getFullYear()}-${String(now0.getMonth() + 1).padStart(2, '0')}`;
+  let anchorYear = String(now0.getFullYear());
+  let focus = null;
+  let showDailyTable = false;
+
+  const $ = id => document.getElementById(id);
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  // ------------------------------------------------------------ formatting
+  const money = (v, opts = {}) => {
+    const a = Math.abs(v);
+    if (opts.compact && a >= 1000) return '$' + (v / 1000).toFixed(a >= 10000 ? 0 : 1) + 'K';
+    if (a >= 100) return '$' + Math.round(v).toLocaleString('en-US');
+    if (a >= 0.01 || a === 0) return '$' + v.toFixed(2);
+    return '<$0.01';
+  };
+  const compact = v => {
+    const a = Math.abs(v);
+    if (a >= 1e9) return (v / 1e9).toFixed(a >= 1e10 ? 0 : 1) + 'B';
+    if (a >= 1e6) return (v / 1e6).toFixed(a >= 1e7 ? 0 : 1) + 'M';
+    if (a >= 1e3) return (v / 1e3).toFixed(a >= 1e4 ? 0 : 1) + 'K';
+    return String(Math.round(v));
+  };
+  const pct = v => (v * 100 >= 10 || v === 0 ? Math.round(v * 100) : (v * 100).toFixed(1)) + '%';
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const MONTHS_LONG = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const parseDay = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m - 1, d || 1); };
+  const dayKey = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const monthKey = d => dayKey(d).slice(0, 7);
+  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const addMonths = (mk, n) => { const d = parseDay(mk + '-01'); d.setMonth(d.getMonth() + n); return monthKey(d); };
+  const fmtDay = s => { const d = parseDay(s); return `${MONTHS[d.getMonth()]} ${d.getDate()}`; };
+  const fmtDayLong = s => { const d = parseDay(s); return `${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`; };
+  const fmtMonth = mk => { const d = parseDay(mk + '-01'); return `${MONTHS_LONG[d.getMonth()]} ${d.getFullYear()}`; };
+  const fmtTime = iso => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const ago = iso => {
+    const s = (Date.now() - new Date(iso)) / 1000;
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.round(s / 60) + ' min ago';
+    if (s < 86400) return Math.round(s / 3600) + ' h ago';
+    return Math.round(s / 86400) + ' d ago';
+  };
+  const modelName = m => {
+    const x = m.replace(/^claude-/, '').split('-');
+    const fam = x[0][0].toUpperCase() + x[0].slice(1);
+    return x.length > 1 ? `${fam} ${x.slice(1).join('.')}` : fam;
+  };
+  const dur = (a, b) => {
+    const m = Math.max(1, Math.round((new Date(b) - new Date(a)) / 60000));
+    return m < 60 ? `${m} min` : `${(m / 60).toFixed(m < 600 ? 1 : 0)} h`;
+  };
+  // ink that reads on a fill: near-black on light fills, white on dark ones
+  function inkOn(varName) {
+    const h = css(varName).replace('#', '');
+    if (h.length !== 6) return '#fff';
+    const [r, g, b] = [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(c => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.35 ? '#0b0b0b' : '#fff';
+  }
+
+  // ------------------------------------------------------------- tooltip
+  const tip = $('tip');
+  function showTip(html, ev) {
+    tip.innerHTML = html; tip.classList.add('on');
+    const r = tip.getBoundingClientRect();
+    let x = ev.clientX + 14, y = ev.clientY + 14;
+    if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14;
+    if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - 14;
+    tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px';
+  }
+  const hideTip = () => tip.classList.remove('on');
+  function bindTips(root, fn) {
+    root.querySelectorAll('[data-tip]').forEach(el => {
+      el.addEventListener('mousemove', e => showTip(fn(el.dataset.tip, el), e));
+      el.addEventListener('mouseleave', hideTip);
+    });
+  }
+
+  // --------------------------------------------------------- data helpers
+  const aliases = () => (RAW && RAW.config && RAW.config.projects) || {};
+  const defaultName = {};
+
+  function modelSortKey(m) {
+    const tier = /fable|mythos/.test(m) ? 0 : /opus/.test(m) ? 1 : /sonnet/.test(m) ? 2 : /haiku/.test(m) ? 3 : 4;
+    const ver = (m.match(/\d+/g) || []).map(Number);
+    return [tier, -(ver[0] || 0), -(ver[1] || 0)];
+  }
+
+  function setup(raw) {
+    RAW = raw;
+    const al = aliases();
+    projName = {}; projColor = {}; projRank = {}; projMembers = {}; rawToEff = {}; sessionsById = {}; modelColor = {};
+    // A project's identity is its display name: folders sharing a name merge.
+    raw.projects.forEach(p => {
+      defaultName[p.key] = p.name;
+      const name = al[p.key] || p.name;
+      const eff = 'n:' + name;
+      rawToEff[p.key] = eff;
+      projName[eff] = name;
+      (projMembers[eff] = projMembers[eff] || []).push(p.key);
+    });
+    const rows = raw.rows.map(r => { const x = r.slice(); x[C.project] = rawToEff[r[C.project]] || r[C.project]; return x; });
+    raw.sessions.forEach(s => sessionsById[s.id] = { ...s, project: rawToEff[s.project] || s.project });
+    DATA = { ...raw, rows };
+
+    // Project colors follow the project (ranked by all-time spend) and stick across refreshes.
+    const tot = {};
+    rows.forEach(r => tot[r[C.project]] = (tot[r[C.project]] || 0) + r[C.cost]);
+    const order = Object.keys(tot).sort((a, b) => tot[b] - tot[a]);
+    const n = order.length <= SLOTS.length ? order.length : SLOTS.length - 1;
+    const colored = order.slice(0, n);
+    let saved = {};
+    try { saved = JSON.parse(store.get('cc.colors2', '{}')) || {}; } catch {}
+    const used = new Set();
+    colored.forEach(k => { const s = saved[k]; if (SLOTS.slice(0, n).includes(s) && !used.has(s)) { projColor[k] = s; used.add(s); } });
+    colored.forEach(k => { if (!projColor[k]) { const s = SLOTS.slice(0, n).find(x => !used.has(x)); projColor[k] = s; used.add(s); } });
+    order.forEach((k, i) => { projRank[k] = i; if (!projColor[k]) projColor[k] = '--other'; });
+    store.set('cc.colors2', JSON.stringify(Object.fromEntries(colored.map(k => [k, projColor[k]]))));
+
+    // Models: an ordinal ink ramp by tier (Fable → Opus → Sonnet → Haiku), newest first.
+    modelOrder = [...new Set(rows.map(r => r[C.model]))].sort((a, b) => {
+      const ka = modelSortKey(a), kb = modelSortKey(b);
+      for (let i = 0; i < 3; i++) if (ka[i] !== kb[i]) return ka[i] - kb[i];
+      return a.localeCompare(b);
+    });
+    modelOrder.forEach((m, i) => modelColor[m] = MSTEPS[Math.min(i, MSTEPS.length - 1)]);
+  }
+  const colorOf = k => projColor[k] || '--other';
+  const groupOf = k => projColor[k] === '--other' ? '__other' : k;
+  const groupName = g => g === '__other' ? 'Other projects' : projName[g];
+  const groupColor = g => g === '__other' ? '--other' : colorOf(g);
+
+  function firstDay() {
+    return DATA.rows.length ? DATA.rows.reduce((m, r) => r[C.day] < m ? r[C.day] : m, DATA.rows[0][C.day]) : dayKey(new Date());
+  }
+
+  // The selected period, plus the period it is compared against.
+  function window_() {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const tk = dayKey(today);
+    let start, end, label, prevStart, prevEnd, prevLabel;
+    if (range === 'month') {
+      start = parseDay(anchorMonth + '-01');
+      end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+      label = fmtMonth(anchorMonth);
+      const ps = new Date(start.getFullYear(), start.getMonth() - 1, 1);
+      const pFull = new Date(start.getFullYear(), start.getMonth(), 0);
+      if (today >= start && today <= end) {
+        // compare month-to-date with the same days of the previous month
+        const d = Math.min(today.getDate(), pFull.getDate());
+        prevStart = ps; prevEnd = new Date(ps.getFullYear(), ps.getMonth(), d);
+        prevLabel = `${MONTHS[ps.getMonth()]} 1–${d}`;
+      } else { prevStart = ps; prevEnd = pFull; prevLabel = MONTHS_LONG[ps.getMonth()]; }
+    } else if (range === 'year') {
+      const y = Number(anchorYear);
+      start = new Date(y, 0, 1); end = new Date(y, 11, 31); label = String(y);
+      prevStart = new Date(y - 1, 0, 1);
+      if (today >= start && today <= end) {
+        prevEnd = new Date(y - 1, today.getMonth(), today.getDate());
+        prevLabel = `${y - 1} up to ${fmtDay(tk)}`;
+      } else { prevEnd = new Date(y - 1, 11, 31); prevLabel = String(y - 1); }
+    } else if (range === 'all') {
+      start = parseDay(firstDay()); end = today; label = 'all time';
+    } else {
+      const n = Number(range);
+      start = addDays(today, -(n - 1)); end = today; label = `last ${n} days`;
+      prevStart = addDays(start, -n); prevEnd = addDays(start, -1); prevLabel = `previous ${n} days`;
+    }
+    const days = [];
+    for (let d = new Date(start); d <= end; d = addDays(d, 1)) days.push(dayKey(d));
+    const elapsed = days.filter(d => d <= tk);
+    const gran = range === 'year' || days.length > 120 ? 'month' : 'day';
+    return { start: dayKey(start), end: dayKey(end), days, elapsed, today: tk, label, gran,
+             prevStart: prevStart && dayKey(prevStart), prevEnd: prevEnd && dayKey(prevEnd), prevLabel };
+  }
+  const inProj = r => !focus || r[C.project] === focus;
+  const sum = (rows, col) => rows.reduce((a, r) => a + r[col], 0);
+
+  // ----------------------------------------------------------------- KPIs
+  function sparkPath(vals, w, h, pad = 3) {
+    const max = Math.max(...vals, 1e-9);
+    const step = vals.length > 1 ? (w - pad * 2) / (vals.length - 1) : 0;
+    return vals.map((v, i) => `${i ? 'L' : 'M'}${(pad + i * step).toFixed(1)},${(h - pad - (v / max) * (h - pad * 2)).toFixed(1)}`).join('');
+  }
+
+  function renderKpis(rows, win, allRows) {
+    const total = sum(rows, C.cost);
+    let deltaHtml;
+    if (win.prevStart) {
+      const prev = sum(allRows.filter(r => inProj(r) && r[C.day] >= win.prevStart && r[C.day] <= win.prevEnd), C.cost);
+      if (prev > 0) {
+        const d = (total - prev) / prev;
+        deltaHtml = `<span class="delta ${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '▲' : '▼'} ${pct(Math.abs(d))}</span> <span>vs ${win.prevLabel} (${money(prev)})</span>`;
+      } else deltaHtml = `<span>No spend in ${win.prevLabel}</span>`;
+    } else deltaHtml = `<span>Since ${fmtDay(win.start)}, ${parseDay(win.start).getFullYear()}</span>`;
+
+    const byDay = Object.fromEntries(win.days.map(d => [d, 0]));
+    rows.forEach(r => byDay[r[C.day]] += r[C.cost]);
+    const series = win.elapsed.map(d => byDay[d]);
+    const active = series.filter(v => v > 0).length;
+    const todayCost = sum(allRows.filter(r => inProj(r) && r[C.day] === win.today), C.cost);
+    const yday = sum(allRows.filter(r => inProj(r) && r[C.day] === dayKey(addDays(parseDay(win.today), -1))), C.cost);
+
+    // month projection (calendar month, independent of the range)
+    const now = new Date();
+    const mStart = dayKey(new Date(now.getFullYear(), now.getMonth(), 1));
+    const mtd = sum(allRows.filter(r => inProj(r) && r[C.day] >= mStart), C.cost);
+    const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const elapsed = now.getDate() - 1 + (now.getHours() * 60 + now.getMinutes()) / 1440;
+    const projected = elapsed > 0.25 ? mtd / elapsed * dim : mtd;
+
+    const tokIn = sum(rows, C.in), tokCr = sum(rows, C.cr), tokCw = sum(rows, C.cw);
+    const hit = tokCr / Math.max(1, tokIn + tokCr + tokCw);
+    let saved = 0;
+    rows.forEach(r => { const p = DATA.prices[r[C.model]]; if (p) saved += r[C.cr] * (p.input - p.cache_read) / 1e6; });
+    const sessions = new Set(rows.map(r => r[C.session])).size;
+
+    const w = 400, h = 72;
+    const path = series.length ? sparkPath(series, w, h) : '';
+    const area = series.length > 1 ? `${path}L${w - 3},${h}L3,${h}Z` : '';
+    const max = series.length ? Math.max(...series) : 0;
+    const iMax = series.indexOf(max);
+
+    $('kpis').innerHTML = `
+      <div class="card tile hero">
+        <div>
+          <div class="label">${focus ? esc(projName[focus]) + ' · ' : ''}Spend, ${esc(win.label)}</div>
+          <div class="value">${money(total)}</div>
+          <div class="foot" style="margin-top:8px">${deltaHtml}</div>
+        </div>
+        <svg class="hero-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-label="Daily spend trend">
+          <path d="${area}" fill="var(--accent)" opacity="0.10"/>
+          <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+        </svg>
+      </div>
+      <div class="card tile"><div class="label">Today</div><div class="value">${money(todayCost)}</div><div class="foot">${money(yday)} yesterday</div></div>
+      <div class="card tile"><div class="label">Average per active day</div><div class="value">${money(active ? total / active : 0)}</div><div class="foot">${active} of ${win.elapsed.length} days active · peak ${max > 0 ? money(max) + ' on ' + fmtDay(win.elapsed[iMax]) : '—'}</div></div>
+      <div class="card tile"><div class="label">This month, projected</div><div class="value">${money(projected)}</div><div class="foot">${money(mtd)} so far in ${MONTHS_LONG[now.getMonth()]}</div></div>
+      <div class="card tile"><div class="label">Cache hit rate</div><div class="value">${pct(hit)}</div><div class="foot">Caching saved ≈ ${money(saved)} · ${sessions} sessions</div></div>
+    `;
+  }
+
+  // ------------------------------------------------------- spend over time
+  function niceTicks(max, count = 4) {
+    if (max <= 0) return [0, 1];
+    const raw = max / count, mag = 10 ** Math.floor(Math.log10(raw));
+    const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw);
+    const top = Math.ceil(max / step) * step;
+    const t = []; for (let v = 0; v <= top + 1e-9; v += step) t.push(+v.toFixed(6));
+    return t;
+  }
+
+  function buckets(win) {
+    if (win.gran === 'day') return win.days.map(d => ({ key: d, label: d === win.today ? 'Today' : fmtDay(d), long: fmtDayLong(d), future: d > win.today }));
+    const out = [];
+    const tm = win.today.slice(0, 7);
+    for (let m = win.start.slice(0, 7); m <= win.end.slice(0, 7); m = addMonths(m, 1)) {
+      const d = parseDay(m + '-01');
+      out.push({ key: m, label: MONTHS[d.getMonth()] + (d.getMonth() === 0 || !out.length ? ` ’${String(d.getFullYear()).slice(2)}` : ''), long: fmtMonth(m) + (m === tm ? ' (so far)' : ''), future: m > tm });
+    }
+    return out;
+  }
+
+  function renderDaily(rows, win) {
+    const B = buckets(win);
+    const bk = win.gran === 'day' ? (r => r[C.day]) : (r => r[C.day].slice(0, 7));
+    const groups = {};
+    const byB = Object.fromEntries(B.map(b => [b.key, {}]));
+    const msgsB = Object.fromEntries(B.map(b => [b.key, 0]));
+    rows.forEach(r => {
+      const g = groupOf(r[C.project]), k = bk(r);
+      if (!byB[k]) return;
+      groups[g] = (groups[g] || 0) + r[C.cost];
+      byB[k][g] = (byB[k][g] || 0) + r[C.cost];
+      msgsB[k] += r[C.msgs];
+    });
+    const rankOf = g => g === '__other' ? 999 : projRank[g];
+    const gOrder = Object.keys(groups).sort((a, b) => rankOf(a) - rankOf(b));
+    const totals = B.map(b => Object.values(byB[b.key]).reduce((a, c) => a + c, 0));
+    const showAvg = win.gran === 'day' && win.elapsed.length >= 14;
+    const avg7 = totals.map((_, i) => { const s = totals.slice(Math.max(0, i - 6), i + 1); return s.reduce((a, c) => a + c, 0) / s.length; });
+
+    $('dailyTitle').textContent = win.gran === 'day' ? 'Daily spend by project' : 'Monthly spend by project';
+    $('dailyLegend').innerHTML = gOrder.map(g => `<button data-g="${esc(g)}" title="${g === '__other' ? '' : 'Focus on this project'}"><span class="dot" style="background:var(${groupColor(g)})"></span>${esc(groupName(g))}</button>`).join('')
+      + (showAvg ? `<span class="item"><span class="line-key"></span>7-day average</span>` : '');
+    $('dailyLegend').querySelectorAll('button[data-g]').forEach(b => b.addEventListener('click', () => { if (b.dataset.g !== '__other') setFocus(b.dataset.g); }));
+    const totalAll = totals.reduce((a, c) => a + c, 0);
+    $('dailyHint').textContent = `${money(totalAll)} · ${win.gran === 'day' ? `${fmtDay(win.start)} – ${fmtDay(win.end)}` : `${fmtMonth(win.start.slice(0, 7))} – ${fmtMonth(win.end.slice(0, 7))}`}`;
+
+    const host = $('dailyChart');
+    const W = Math.max(300, host.clientWidth || 800), H = 280;
+    const m = { l: 48, r: 8, t: 16, b: 26 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const ticks = niceTicks(Math.max(...totals, ...(showAvg ? avg7 : [0])));
+    const top = ticks[ticks.length - 1];
+    const y = v => m.t + ih - (v / top) * ih;
+    const slot = iw / B.length;
+    const bw = Math.max(2, Math.min(24, slot * 0.68));
+    const labelEvery = Math.ceil(B.length / Math.max(2, Math.floor(iw / 64)));
+    const todayIdx = B.findIndex(b => b.key === (win.gran === 'day' ? win.today : win.today.slice(0, 7)));
+
+    let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Stacked spend by project">`;
+    ticks.forEach(t => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(t)}" y2="${y(t)}" stroke="${t === 0 ? 'var(--axis)' : 'var(--grid)'}" stroke-width="1" shape-rendering="crispEdges"/><text class="axis-text" x="${m.l - 8}" y="${y(t) + 4}" text-anchor="end">${money(t, { compact: true }).replace('.00', '')}</text>`; });
+    B.forEach((b, i) => {
+      const cx = m.l + slot * i + slot / 2;
+      s += `<g class="col-group" data-tip="${i}"><rect class="hl" x="${m.l + slot * i}" y="${m.t}" width="${slot}" height="${ih}" fill="transparent" rx="4"/>`;
+      let acc = 0;
+      const segs = gOrder.filter(g => byB[b.key][g] > 0);
+      segs.forEach((g, j) => {
+        const v = byB[b.key][g];
+        const y0 = y(acc), y1 = y(acc + v);
+        const isTop = j === segs.length - 1;
+        const hgt = Math.max(0, y0 - y1 - (j > 0 ? 2 : 0));
+        if (hgt > 0.2) {
+          const x = cx - bw / 2, yy = y1, r = isTop ? Math.min(4, hgt, bw / 2) : 0;
+          s += `<path d="M${x},${yy + hgt}V${yy + r}${r ? `Q${x},${yy} ${x + r},${yy}` : ''}H${x + bw - r}${r ? `Q${x + bw},${yy} ${x + bw},${yy + r}` : ''}V${yy + hgt}Z" fill="var(${groupColor(g)})"/>`;
+        }
+        acc += v;
+      });
+      s += `<rect class="hit" x="${m.l + slot * i}" y="${m.t}" width="${slot}" height="${ih + m.b}"/></g>`;
+      const isToday = i === todayIdx;
+      const nearToday = todayIdx >= 0 && Math.abs(i - todayIdx) < labelEvery * 0.6 && !isToday;
+      if ((i % labelEvery === 0 && !nearToday) || (isToday && win.gran === 'day')) {
+        s += `<text class="axis-text" x="${cx}" y="${H - 8}" text-anchor="middle" ${isToday ? 'style="fill:var(--ink-2);font-weight:600"' : ''}>${esc(b.label)}</text>`;
+      }
+    });
+    if (showAvg) {
+      const n = win.elapsed.length;
+      const p = avg7.slice(0, n).map((v, i) => `${i ? 'L' : 'M'}${(m.l + slot * i + slot / 2).toFixed(1)},${y(v).toFixed(1)}`).join('');
+      s += `<path d="${p}" fill="none" stroke="var(--ink-2)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="0.85" pointer-events="none"/>`;
+    }
+    const iMax = totals.indexOf(Math.max(...totals));
+    if (totals[iMax] > 0) {
+      const px = m.l + slot * iMax + slot / 2;
+      s += `<text x="${Math.min(W - 30, Math.max(m.l + 20, px))}" y="${y(totals[iMax]) - 7}" text-anchor="middle" style="fill:var(--ink-2);font-size:11.5px;font-weight:600" pointer-events="none">${money(totals[iMax])}</text>`;
+    }
+    s += `</svg>`;
+    host.innerHTML = s;
+    bindTips(host, i => {
+      i = Number(i); const b = B[i];
+      const parts = gOrder.filter(g => byB[b.key][g] > 0).sort((a, c) => byB[b.key][c] - byB[b.key][a]);
+      return `<div class="th"><span>${esc(b.long)}</span><span>${money(totals[i])}</span></div>`
+        + (parts.length ? parts.map(g => `<div class="tr"><span class="l"><span class="dot" style="background:var(${groupColor(g)})"></span>${esc(groupName(g))}</span><span>${money(byB[b.key][g])}</span></div>`).join('') : `<div class="tm">${b.future ? 'Still to come' : 'No usage'}</div>`)
+        + (msgsB[b.key] ? `<div class="tr tm" style="margin-top:6px"><span>${msgsB[b.key].toLocaleString()} API calls</span>${showAvg && !b.future ? `<span>7d avg ${money(avg7[i])}</span>` : ''}</div>` : '');
+    });
+
+    const rowsHtml = B.map((b, i) => [b, i]).reverse().filter(([, i]) => totals[i] > 0).map(([b, i]) => {
+      const topG = gOrder.filter(g => byB[b.key][g] > 0).sort((a, c) => byB[b.key][c] - byB[b.key][a])[0];
+      return `<tr><td>${esc(b.long)}</td><td class="num">${money(totals[i])}</td><td><span class="pname"><span class="dot" style="background:var(${groupColor(topG)})"></span>${esc(groupName(topG))}</span></td><td class="num">${msgsB[b.key].toLocaleString()}</td></tr>`;
+    }).join('');
+    $('dailyTable').innerHTML = `<table><thead><tr><th>${win.gran === 'day' ? 'Day' : 'Month'}</th><th class="num">Spend</th><th>Top project</th><th class="num">API calls</th></tr></thead><tbody>${rowsHtml || '<tr><td colspan="4" class="muted">No usage in this range</td></tr>'}</tbody></table>`;
+  }
+
+  // --------------------------------------------------------- project table
+  function modelTip(name, models, total) {
+    const ks = Object.keys(models).sort((a, b) => models[b].cost - models[a].cost);
+    return `<div class="th"><span>${esc(name)}</span><span>${money(total)}</span></div>`
+      + ks.map(k => `<div class="tr"><span class="l"><span class="dot" style="background:var(${modelColor[k]})"></span>${esc(modelName(k))}</span><span>${money(models[k].cost)} <span class="tm">· ${pct(models[k].cost / (total || 1))}</span></span></div>`).join('')
+      + `<div class="tm" style="margin-top:6px">${ks.map(k => `${esc(modelName(k))}: ${models[k].msgs.toLocaleString()} calls`).join(' · ')}</div>`;
+  }
+
+  function renderProjects(rowsAllProj, win) {
+    const agg = {};
+    const sparkDays = win.elapsed.slice(-Math.min(30, win.elapsed.length));
+    const sparkStart = sparkDays[0];
+    const usedModels = new Set();
+    rowsAllProj.forEach(r => {
+      const k = r[C.project];
+      const a = agg[k] || (agg[k] = { cost: 0, msgs: 0, tok: 0, sessions: new Set(), last: '', models: {}, spark: {} });
+      a.cost += r[C.cost]; a.msgs += r[C.msgs]; a.tok += r[C.in] + r[C.out] + r[C.cr] + r[C.cw];
+      a.sessions.add(r[C.session]);
+      const mm = a.models[r[C.model]] || (a.models[r[C.model]] = { cost: 0, msgs: 0 });
+      mm.cost += r[C.cost]; mm.msgs += r[C.msgs];
+      usedModels.add(r[C.model]);
+      if (r[C.day] >= sparkStart) a.spark[r[C.day]] = (a.spark[r[C.day]] || 0) + r[C.cost];
+      const last = r[C.day] + 'T' + String(r[C.hour]).padStart(2, '0');
+      if (last > a.last) a.last = last;
+    });
+    const keys = Object.keys(agg).sort((a, b) => agg[b].cost - agg[a].cost);
+    const total = keys.reduce((s, k) => s + agg[k].cost, 0) || 1;
+    const maxCost = keys.length ? agg[keys[0]].cost : 1;
+    $('modelLegend').innerHTML = modelOrder.filter(m => usedModels.has(m)).map(m => `<span class="item"><span class="dot" style="background:var(${modelColor[m]})"></span>${esc(modelName(m))}</span>`).join('');
+    const sw = 84, sh = 22;
+    const body = keys.map(k => {
+      const a = agg[k];
+      const vals = sparkDays.map(d => a.spark[d] || 0);
+      const lastDay = a.last.slice(0, 10);
+      const lastTxt = lastDay === win.today ? 'Today' : lastDay === dayKey(addDays(parseDay(win.today), -1)) ? 'Yesterday' : fmtDay(lastDay);
+      const segs = modelOrder.filter(mm => a.models[mm] && a.models[mm].cost > 0)
+        .map(mm => `<i style="flex:${(a.models[mm].cost / maxCost).toFixed(5)} 0 0;background:var(${modelColor[mm]})"></i>`).join('');
+      const members = projMembers[k] || [];
+      return `<tr class="click ${focus === k ? 'sel' : ''}" data-k="${esc(k)}">
+        <td><span class="pname" title="${esc(members.join('\n'))}"><span class="dot" style="background:var(${colorOf(k)})"></span>${esc(projName[k])}${members.length > 1 ? ` <span class="muted" style="font-weight:400;font-size:12px">${members.length} folders</span>` : ''}</span></td>
+        <td class="num" style="font-weight:600">${money(a.cost)}</td>
+        <td data-tip="${esc(k)}"><div class="share"><div class="bar">${segs}<i class="rest" style="flex:${(1 - a.cost / maxCost).toFixed(5)} 0 0"></i></div><span>${pct(a.cost / total)}</span></div></td>
+        <td class="num">${a.sessions.size}</td>
+        <td class="num">${compact(a.tok)}</td>
+        <td class="muted">${lastTxt}</td>
+        <td><svg width="${sw}" height="${sh}" viewBox="0 0 ${sw} ${sh}" aria-label="Spend trend"><path d="${sparkPath(vals, sw, sh, 2)}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg></td>
+      </tr>`;
+    }).join('');
+    $('projTable').innerHTML = `<thead><tr><th>Project</th><th class="num">Spend</th><th>Share · by model</th><th class="num">Sessions</th><th class="num">Tokens</th><th>Last active</th><th title="Daily spend over the last ${sparkDays.length} days of the range">Trend</th></tr></thead><tbody>${body || '<tr><td colspan="7" class="muted">No usage in this range</td></tr>'}</tbody>`;
+    $('projTable').querySelectorAll('tr[data-k]').forEach(tr => tr.addEventListener('click', () => setFocus(focus === tr.dataset.k ? null : tr.dataset.k)));
+    bindTips($('projTable'), k => modelTip(projName[k], agg[k].models, agg[k].cost));
+  }
+
+  // ---------------------------------------------------------- spend mix
+  function segBar(title, items, total) {
+    items = items.filter(i => i.v > 0);
+    const bar = items.map(i => {
+      const share = i.v / total;
+      const label = share >= 0.12 ? pct(share) : '';
+      return `<div data-tip="${esc(i.name)}|${i.v}|${esc(i.extra || '')}" style="flex:${share} 1 0;background:var(${i.c});color:${inkOn(i.c)}">${label}</div>`;
+    }).join('');
+    const legend = items.map(i => `<span class="n"><span class="dot" style="background:var(${i.c})"></span>${esc(i.name)}${i.extra ? ` <span class="muted" style="font-size:12px">${esc(i.extra)}</span>` : ''}</span><span class="v">${money(i.v)}</span><span class="p">${pct(i.v / total)}</span>`).join('');
+    return `<div class="seg-title">${title}</div><div class="segbar" role="img" aria-label="${title}">${bar}</div><div class="seg-legend">${legend}</div>`;
+  }
+
+  function renderMix(rows) {
+    const total = sum(rows, C.cost);
+    if (!total) { $('mix').innerHTML = '<div class="empty">No usage in this range</div>'; $('mixHint').textContent = ''; return; }
+    const byModel = {}, callsByModel = {};
+    rows.forEach(r => { byModel[r[C.model]] = (byModel[r[C.model]] || 0) + r[C.cost]; callsByModel[r[C.model]] = (callsByModel[r[C.model]] || 0) + r[C.msgs]; });
+    const mItems = modelOrder.filter(k => byModel[k] > 0).map(k => ({ name: modelName(k), v: byModel[k], c: modelColor[k], extra: callsByModel[k].toLocaleString() + ' calls' }));
+    const tItems = [
+      { name: 'Output', v: sum(rows, C.c_out), c: '--s1', extra: compact(sum(rows, C.out)) + ' tok' },
+      { name: 'Cache writes', v: sum(rows, C.c_cw), c: '--s2', extra: compact(sum(rows, C.cw)) + ' tok' },
+      { name: 'Cache reads', v: sum(rows, C.c_cr), c: '--s3', extra: compact(sum(rows, C.cr)) + ' tok' },
+      { name: 'Uncached input', v: sum(rows, C.c_in), c: '--s4', extra: compact(sum(rows, C.in)) + ' tok' },
+    ];
+    const msgs = sum(rows, C.msgs);
+    const sess = new Set(rows.map(r => r[C.session])).size;
+    const tok = sum(rows, C.in) + sum(rows, C.out) + sum(rows, C.cr) + sum(rows, C.cw);
+    $('mixHint').textContent = `${focus ? projName[focus] + ' · ' : ''}${compact(tok)} tokens across ${msgs.toLocaleString()} API calls`;
+    $('mix').innerHTML = segBar('By model', mItems, total) + segBar('By token type', tItems, total)
+      + `<div class="facts">
+          <div><div class="k">Per session</div><div class="v">${money(total / Math.max(1, sess))}</div></div>
+          <div><div class="k">Per API call</div><div class="v">${money(total / Math.max(1, msgs))}</div></div>
+          <div><div class="k">Per 1M tokens</div><div class="v">${money(total / Math.max(1, tok) * 1e6)}</div></div>
+        </div>`;
+    bindTips($('mix'), t => { const [n, v, x] = t.split('|'); return `<div class="th"><span>${esc(n)}</span><span>${money(+v)}</span></div><div class="tm">${pct(+v / total)} of spend${x ? ' · ' + esc(x) : ''}</div>`; });
+  }
+
+  // ------------------------------------------------------ months & years
+  function renderMonths(allRows, win) {
+    const rows = allRows.filter(inProj);
+    const M = {}, Y = {};
+    const bump = (o, k) => o[k] || (o[k] = { cost: 0, days: new Set(), sessions: new Set(), proj: {} });
+    rows.forEach(r => {
+      for (const a of [bump(M, r[C.day].slice(0, 7)), bump(Y, r[C.day].slice(0, 4))]) {
+        a.cost += r[C.cost]; a.days.add(r[C.day]); a.sessions.add(r[C.session]);
+        const g = groupOf(r[C.project]);
+        a.proj[g] = (a.proj[g] || 0) + r[C.cost];
+      }
+    });
+    const now = new Date();
+    const curM = monthKey(now), curY = String(now.getFullYear());
+    const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const fracM = (now.getDate() - 1 + (now.getHours() * 60 + now.getMinutes()) / 1440) / dim;
+    const startY = new Date(now.getFullYear(), 0, 1), endY = new Date(now.getFullYear() + 1, 0, 1);
+    const fracY = (now - startY) / (endY - startY);
+    const rankOf = g => g === '__other' ? 999 : projRank[g];
+
+    const mixCell = (a, label) => {
+      const gs = Object.keys(a.proj).filter(g => a.proj[g] > 0).sort((x, y) => rankOf(x) - rankOf(y));
+      return `<div class="mixbar" data-tip="${esc(label)}">${gs.map(g => `<i style="flex:${(a.proj[g] / a.cost).toFixed(5)} 0 0;background:var(${groupColor(g)})"></i>`).join('')}</div>`;
+    };
+    const first = firstDay();
+    const change = (cur, prev, isCurrent, frac, periodStart) => {
+      // only project a pace when there is data from the start of the period
+      if (isCurrent && frac > 0.02 && first <= periodStart) return `<span class="muted">on pace for ${money(cur / frac)}</span>`;
+      if (!prev) return '<span class="muted">—</span>';
+      const d = (cur - prev) / prev;
+      return `<span class="delta ${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '▲' : '▼'} ${pct(Math.abs(d))}</span>`;
+    };
+    const tips = {};
+    const years = Object.keys(Y).sort().reverse();
+    let body = '';
+    years.forEach(yk => {
+      const a = Y[yk], isCur = yk === curY;
+      tips['y' + yk] = [yk + (isCur ? ' (so far)' : ''), a];
+      const sel = range === 'year' && anchorYear === yk;
+      body += `<tr class="year click ${sel ? 'sel' : ''}" data-y="${yk}"><td>${yk}${isCur ? ' <span class="muted" style="font-weight:400">so far</span>' : ''}</td><td class="num">${money(a.cost)}</td><td>${change(a.cost, Y[String(+yk - 1)]?.cost, isCur, fracY, yk + '-01-07')}</td><td class="num">${a.days.size}</td><td class="num">${money(a.cost / Math.max(1, a.days.size))}</td><td class="num">${a.sessions.size}</td><td>${mixCell(a, 'y' + yk)}</td></tr>`;
+      Object.keys(M).filter(mk => mk.startsWith(yk)).sort().reverse().forEach(mk => {
+        const b = M[mk], isCurM = mk === curM;
+        tips['m' + mk] = [fmtMonth(mk) + (isCurM ? ' (so far)' : ''), b];
+        const selM = range === 'month' && anchorMonth === mk;
+        body += `<tr class="month click ${selM ? 'sel' : ''}" data-m="${mk}"><td>${MONTHS_LONG[parseDay(mk + '-01').getMonth()]}${isCurM ? ' <span class="muted">so far</span>' : ''}</td><td class="num" style="font-weight:600">${money(b.cost)}</td><td>${change(b.cost, M[addMonths(mk, -1)]?.cost, isCurM, fracM, mk + '-03')}</td><td class="num">${b.days.size}</td><td class="num">${money(b.cost / Math.max(1, b.days.size))}</td><td class="num">${b.sessions.size}</td><td>${mixCell(b, 'm' + mk)}</td></tr>`;
+      });
+    });
+    $('monthsHint').textContent = `${focus ? projName[focus] + ' · ' : ''}All time · click a month or year to view it`;
+    $('monthsTable').innerHTML = `<thead><tr><th>Period</th><th class="num">Spend</th><th>Change</th><th class="num">Active days</th><th class="num">Per active day</th><th class="num">Sessions</th><th style="width:30%">Projects</th></tr></thead><tbody>${body || '<tr><td colspan="7" class="muted">No usage yet</td></tr>'}</tbody>`;
+    $('monthsTable').querySelectorAll('tr[data-m]').forEach(tr => tr.addEventListener('click', () => { range = 'month'; anchorMonth = tr.dataset.m; store.set('cc.range', range); render(); scrollTo({ top: 0, behavior: 'smooth' }); }));
+    $('monthsTable').querySelectorAll('tr[data-y]').forEach(tr => tr.addEventListener('click', () => { range = 'year'; anchorYear = tr.dataset.y; store.set('cc.range', range); render(); scrollTo({ top: 0, behavior: 'smooth' }); }));
+    bindTips($('monthsTable'), key => {
+      const [label, a] = tips[key];
+      const gs = Object.keys(a.proj).sort((x, y) => a.proj[y] - a.proj[x]);
+      return `<div class="th"><span>${esc(label)}</span><span>${money(a.cost)}</span></div>` + gs.map(g => `<div class="tr"><span class="l"><span class="dot" style="background:var(${groupColor(g)})"></span>${esc(groupName(g))}</span><span>${money(a.proj[g])}</span></div>`).join('');
+    });
+  }
+
+  // ------------------------------------------------------------- heatmap
+  function renderHeat(rows) {
+    const grid = Array.from({ length: 7 }, () => new Array(24).fill(0));
+    rows.forEach(r => { const wd = (parseDay(r[C.day]).getDay() + 6) % 7; grid[wd][r[C.hour]] += r[C.cost]; });
+    const max = Math.max(...grid.flat());
+    const host = $('heat');
+    const W = Math.max(300, host.clientWidth || 500);
+    const lx = 34, gap = 2, cw = (W - lx) / 24, ch = Math.max(14, Math.min(26, cw * 1.05)), H = ch * 7 + 22;
+    const rgb = css('--heat');
+    let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Spend heatmap by weekday and hour">`;
+    DOW.forEach((d, i) => { s += `<text class="axis-text" x="0" y="${i * ch + ch / 2 + 4}">${d}</text>`; });
+    for (let h = 0; h < 24; h++) if (h % 3 === 0) s += `<text class="axis-text" x="${lx + h * cw + cw / 2}" y="${H - 4}" text-anchor="middle">${String(h).padStart(2, '0')}</text>`;
+    grid.forEach((row, i) => row.forEach((v, h) => {
+      const a = v > 0 ? 0.12 + 0.88 * Math.sqrt(v / max) : 0;
+      const fill = v > 0 ? `rgba(${rgb},${a.toFixed(3)})` : 'var(--surface-2)';
+      s += `<rect data-tip="${i}|${h}" x="${lx + h * cw + gap / 2}" y="${i * ch + gap / 2}" width="${cw - gap}" height="${ch - gap}" rx="3" fill="${fill}"/>`;
+    }));
+    s += '</svg>';
+    let peak = [0, 0]; grid.forEach((r, i) => r.forEach((v, h) => { if (v > grid[peak[0]][peak[1]]) peak = [i, h]; }));
+    const byDow = grid.map(r => r.reduce((a, b) => a + b, 0));
+    const topDow = byDow.indexOf(Math.max(...byDow));
+    host.innerHTML = s + (max > 0 ? `<div class="hint" style="margin-top:10px">Busiest slot: <b style="color:var(--ink-2)">${DOW[peak[0]]} ${String(peak[1]).padStart(2,'0')}:00</b> (${money(grid[peak[0]][peak[1]])}) · most spend on <b style="color:var(--ink-2)">${DOW[topDow]}s</b> (${money(byDow[topDow])})</div>` : '');
+    bindTips(host, t => { const [i, h] = t.split('|').map(Number); return `<div class="th"><span>${DOW[i]} ${String(h).padStart(2, '0')}:00–${String((h + 1) % 24).padStart(2, '0')}:00</span><span>${money(grid[i][h])}</span></div>`; });
+  }
+
+  // ------------------------------------------------------------ sessions
+  function renderSessions(rows) {
+    const agg = {};
+    rows.forEach(r => { const a = agg[r[C.session]] || (agg[r[C.session]] = { cost: 0, msgs: 0, models: {} }); a.cost += r[C.cost]; a.msgs += r[C.msgs]; a.models[r[C.model]] = 1; });
+    const ids = Object.keys(agg).sort((a, b) => agg[b].cost - agg[a].cost);
+    const top = ids.slice(0, 8);
+    const max = top.length ? agg[top[0]].cost : 1;
+    const total = ids.reduce((s, k) => s + agg[k].cost, 0);
+    const topShare = top.reduce((s, k) => s + agg[k].cost, 0) / (total || 1);
+    $('sessHint').textContent = ids.length ? `${ids.length} sessions in range · top ${top.length} make up ${pct(topShare)} of spend` : '';
+    $('sessions').innerHTML = top.map(id => {
+      const s = sessionsById[id] || {}; const a = agg[id];
+      const title = s.title || (s.branch && s.branch !== 'HEAD' && s.branch !== 'main' ? s.branch : 'Untitled session');
+      return `<div class="srow">
+        <div class="t" title="${esc(title)}">${esc(title)}</div><div class="c">${money(a.cost)}</div>
+        <div class="m"><span class="dot" style="background:var(${colorOf(s.project)})"></span>${esc(projName[s.project] || '')} · ${s.first ? fmtDay(s.first.slice(0, 10)) : ''} · ${s.first ? dur(s.first, s.last) : ''} · ${a.msgs} calls</div>
+        <div class="m" style="justify-content:flex-end">${modelOrder.filter(m => a.models[m]).map(modelName).join(', ')}</div>
+        <div class="bar"><i style="width:${(a.cost / max * 100).toFixed(1)}%;background:var(${colorOf(s.project)})"></i></div>
+      </div>`;
+    }).join('') || '<div class="empty">No sessions in this range</div>';
+  }
+
+  // -------------------------------------------------- rename & group dialog
+  function openManager() {
+    const al = aliases();
+    const tot = {};
+    RAW.rows.forEach(r => tot[r[C.project]] = (tot[r[C.project]] || 0) + r[C.cost]);
+    const projs = RAW.projects.slice().sort((a, b) => (tot[b.key] || 0) - (tot[a.key] || 0));
+    const names = [...new Set(Object.values(projName))].sort((a, b) => a.localeCompare(b));
+    $('pmNames').innerHTML = names.map(n => `<option value="${esc(n)}">`).join('');
+    $('pmList').innerHTML = projs.map((p, i) => `
+      <div class="pm-row">
+        <div style="min-width:0"><div class="nm">${esc(p.name)}</div><div class="path" title="${esc(p.key)}">&lrm;${esc(p.key === 'scratch' ? 'Claude desktop scratch workspaces' : p.key.replace(/^\/Users\/[^/]+/, '~'))}</div></div>
+        <div class="cost">${money(tot[p.key] || 0)}</div>
+        <div class="in"><input data-i="${i}" list="pmNames" placeholder="${esc(p.name)}" value="${esc(al[p.key] || '')}" aria-label="Name for ${esc(p.name)}" autocomplete="off"><div class="grp" data-g="${i}"></div></div>
+      </div>`).join('');
+    const inputs = [...$('pmList').querySelectorAll('input')];
+    const refreshGroups = () => {
+      const eff = inputs.map((inp, i) => inp.value.trim() || projs[i].name);
+      const count = {}; eff.forEach(n => count[n] = (count[n] || 0) + 1);
+      inputs.forEach((inp, i) => { $('pmList').querySelector(`[data-g="${i}"]`).textContent = count[eff[i]] > 1 ? `Combined with ${count[eff[i]] - 1} other folder${count[eff[i]] > 2 ? 's' : ''}` : ''; });
+    };
+    inputs.forEach(inp => inp.addEventListener('input', refreshGroups));
+    refreshGroups();
+    $('pm')._projs = projs;
+    $('pm').showModal();
+  }
+
+  async function saveManager(e) {
+    e.preventDefault();
+    const projs = $('pm')._projs;
+    const out = {};
+    $('pmList').querySelectorAll('input').forEach((inp, i) => {
+      const v = inp.value.trim();
+      if (v && v !== projs[i].name) out[projs[i].key] = v;
+    });
+    $('pmSave').disabled = true;
+    try {
+      const res = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projects: out }) });
+      if (!res.ok) throw new Error(res.status);
+      RAW.config = await res.json();
+      const prevFocusName = focus && projName[focus];
+      setup(RAW);
+      focus = prevFocusName && projName['n:' + prevFocusName] ? 'n:' + prevFocusName : null;
+      render();
+      $('pm').close();
+    } catch (err) {
+      alert('Could not save project names: ' + err.message);
+    } finally { $('pmSave').disabled = false; }
+  }
+
+  // -------------------------------------------------------------- render
+  function renderControls() {
+    document.querySelectorAll('#range button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.r === range)));
+    const st = $('stepper');
+    st.classList.toggle('on', range === 'month' || range === 'year');
+    if (!DATA) return;
+    const first = firstDay(), now = new Date();
+    if (range === 'month') {
+      $('periodLabel').textContent = fmtMonth(anchorMonth);
+      $('prevP').disabled = anchorMonth <= first.slice(0, 7);
+      $('nextP').disabled = anchorMonth >= monthKey(now);
+    } else if (range === 'year') {
+      $('periodLabel').textContent = anchorYear;
+      $('prevP').disabled = anchorYear <= first.slice(0, 4);
+      $('nextP').disabled = Number(anchorYear) >= now.getFullYear();
+    }
+  }
+
+  function render() {
+    renderControls();
+    if (!DATA) return;
+    const chip = $('filterChip');
+    chip.classList.toggle('on', !!focus);
+    if (focus) { $('filterName').textContent = projName[focus]; $('filterDot').style.background = `var(${colorOf(focus)})`; }
+
+    if (!DATA.rows.length) {
+      $('app').innerHTML = `<div class="card empty">No Claude Code usage found in <code>${esc(DATA.source)}</code>.</div>`;
+      return;
+    }
+    const win = window_();
+    const inWin = DATA.rows.filter(r => r[C.day] >= win.start && r[C.day] <= win.end);
+    const rows = inWin.filter(inProj);
+    renderKpis(rows, win, DATA.rows);
+    renderDaily(rows, win);
+    renderProjects(inWin, win);
+    renderMix(rows);
+    renderMonths(DATA.rows, win);
+    renderHeat(rows);
+    renderSessions(rows);
+  }
+
+  function setFocus(k) { focus = k; render(); }
+  function setStatus() {
+    if (!DATA) return;
+    const stale = DATA.newest && (Date.now() - new Date(DATA.newest)) > 30 * 60000;
+    $('live').classList.toggle('stale', !!stale);
+    $('status').textContent = `Read ${DATA.files} log files · updated ${fmtTime(DATA.generated)} · last activity ${DATA.newest ? ago(DATA.newest) : '—'}`;
+  }
+
+  async function load() {
+    if ($('pm').open) return; // don't re-render under the dialog
+    const btn = $('refresh'); btn.classList.add('spin');
+    try {
+      const res = await fetch('/api/data', { cache: 'no-store' });
+      if (!res.ok) throw new Error(res.status);
+      setup(await res.json());
+      if (focus && !projName[focus]) focus = null;
+      render(); setStatus();
+      const unk = DATA.unknown_models.length ? `<br>Estimated with a fallback price: ${DATA.unknown_models.map(esc).join(', ')}.` : '';
+      $('foot').innerHTML = `Costs are computed from the token <code>usage</code> recorded in every assistant message under <code>${esc(DATA.source)}</code>, priced at Anthropic API list rates (cache writes at 1.25× input for 5-minute and 2× for 1-hour TTL; fast mode at 2×). On a Pro/Max subscription this is the API-equivalent value, not what you are billed. Project names are saved in <code>config.json</code> next to <code>server.py</code>. Auto-refreshes every minute.${unk}`;
+    } catch (e) {
+      $('status').textContent = 'Could not read usage data — is server.py running?';
+      $('live').classList.add('stale');
+    } finally { btn.classList.remove('spin'); }
+  }
+
+  // --------------------------------------------------------------- wiring
+  document.querySelectorAll('#range button').forEach(b => b.addEventListener('click', () => {
+    range = b.dataset.r; store.set('cc.range', range);
+    const n = new Date();
+    if (range === 'month' && !b._kept) anchorMonth = monthKey(n);
+    if (range === 'year') anchorYear = String(n.getFullYear());
+    render();
+  }));
+  $('prevP').addEventListener('click', () => { if (range === 'month') anchorMonth = addMonths(anchorMonth, -1); else anchorYear = String(+anchorYear - 1); render(); });
+  $('nextP').addEventListener('click', () => { if (range === 'month') anchorMonth = addMonths(anchorMonth, 1); else anchorYear = String(+anchorYear + 1); render(); });
+  $('clearFilter').addEventListener('click', () => setFocus(null));
+  $('refresh').addEventListener('click', load);
+  $('manage').addEventListener('click', openManager);
+  $('pmForm').addEventListener('submit', saveManager);
+  $('pmCancel').addEventListener('click', () => $('pm').close());
+  $('pmReset').addEventListener('click', () => { $('pmList').querySelectorAll('input').forEach(i => { i.value = ''; i.dispatchEvent(new Event('input')); }); });
+  $('dailyToggle').addEventListener('click', () => {
+    showDailyTable = !showDailyTable;
+    $('dailyTable').classList.toggle('hidden', !showDailyTable);
+    $('dailyChart').classList.toggle('hidden', showDailyTable);
+    $('dailyLegend').classList.toggle('hidden', showDailyTable);
+    $('dailyToggle').textContent = showDailyTable ? 'Show chart' : 'Show table';
+  });
+  let rt; new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(render, 80); }).observe(document.querySelector('.wrap'));
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+  addEventListener('focus', load);
+  setInterval(load, 60000);
+  setInterval(setStatus, 15000);
+  renderControls();
+  load();
+})();
+</script>
+</body>
+</html>
