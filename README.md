@@ -47,8 +47,18 @@ not what you are billed.
 ## Renaming and grouping projects
 
 Click **Rename & group** on the Projects card. Give a folder a new name to rename it;
-give several folders the same name to combine them into one project. Names are saved
-in `config.json` next to `server.py`.
+give several folders the same name to combine them into one project. Click the color
+button next to a name to pin that project's color, or leave it on Auto. Names and colors
+are saved in `config.json` next to `server.py`.
+
+## Project colors
+
+Each period you view colors its eight biggest projects; the rest are grouped as gray
+"Other projects". So a project that mattered last spring is still in color when you step
+back to last spring. Projects keep the same color wherever they can: a color you pinned
+comes first, then the color the project was given when it first appeared (remembered in
+the browser). Only when two projects in the same period want the same color does one of
+them borrow a free one for that period.
 
 ## Days, weeks, months and years
 

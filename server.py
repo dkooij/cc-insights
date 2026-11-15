@@ -27,20 +27,29 @@ def read_config() -> dict:
         cfg = json.loads(CONFIG.read_text())
     except (OSError, ValueError):
         cfg = {}
-    if not isinstance(cfg.get("projects"), dict):
-        cfg["projects"] = {}
+    for key in ("projects", "colors"):
+        if not isinstance(cfg.get(key), dict):
+            cfg[key] = {}
     return cfg
 
 
+COLOR_SLOTS = {f"s{i}" for i in range(1, 9)}
+
+
 def clean_config(raw) -> dict:
-    """Keep only {project path: display name} string pairs."""
-    projects = (raw or {}).get("projects") if isinstance(raw, dict) else None
-    out = {}
+    """Keep only {project path: display name} and {display name: color slot} string pairs."""
+    raw = raw if isinstance(raw, dict) else {}
+    projects, colors = raw.get("projects"), raw.get("colors")
+    out, out_colors = {}, {}
     if isinstance(projects, dict):
         for k, v in projects.items():
             if isinstance(k, str) and isinstance(v, str) and v.strip():
                 out[k[:1000]] = v.strip()[:120]
-    return {"projects": out}
+    if isinstance(colors, dict):
+        for k, v in colors.items():
+            if isinstance(k, str) and k.strip() and v in COLOR_SLOTS:
+                out_colors[k.strip()[:120]] = v
+    return {"projects": out, "colors": out_colors}
 
 
 class Handler(BaseHTTPRequestHandler):

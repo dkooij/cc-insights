@@ -207,7 +207,7 @@ dialog form { display: flex; flex-direction: column; max-height: calc(100vh - 50
 .dlg-head h2 { font-size: 17px; margin: 0; font-weight: 650; }
 .dlg-body { overflow: auto; padding: 4px 22px 8px; }
 .dlg-foot { display: flex; gap: 8px; justify-content: space-between; align-items: center; padding: 14px 22px; border-top: 1px solid var(--grid); }
-.pm-row { display: grid; grid-template-columns: 1fr 72px 220px; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--grid); }
+.pm-row { display: grid; grid-template-columns: 1fr 72px 260px; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--grid); }
 .pm-row:last-child { border-bottom: 0; }
 .pm-row .nm { font-weight: 560; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pm-row .path { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
@@ -215,6 +215,20 @@ dialog form { display: flex; flex-direction: column; max-height: calc(100vh - 50
 .pm-row input { width: 100%; font: inherit; font-size: 13.5px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; }
 .pm-row input:focus { outline: 2px solid var(--accent); outline-offset: -1px; background: var(--surface); }
 .pm-row .grp { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+.pm-row .in-row { display: flex; gap: 8px; }
+.cbtn { flex: none; width: 34px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.cbtn:hover { border-color: var(--axis); }
+.cbtn i { width: 14px; height: 14px; border-radius: 50%; }
+.cbtn.auto i { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 3.5px var(--axis); }
+#pmPal { position: absolute; z-index: 5; display: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: 8px; width: 172px; }
+#pmPal.on { display: block; }
+#pmPal .auto { display: flex; align-items: center; gap: 8px; width: 100%; font: inherit; font-size: 13px; color: var(--ink); background: none; border: 0; border-radius: 8px; padding: 6px; cursor: pointer; text-align: left; }
+#pmPal .auto:hover { background: var(--surface-2); }
+#pmPal .auto i { width: 14px; height: 14px; border-radius: 50%; flex: none; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--axis); }
+#pmPal .auto[aria-checked="true"]::after { content: '✓'; margin-left: auto; color: var(--ink-2); }
+#pmPal .sw { display: grid; grid-template-columns: repeat(4, 28px); gap: 10px; padding: 8px 6px 4px; }
+#pmPal .sw button { width: 28px; height: 28px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; }
+#pmPal .sw button[aria-checked="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
 @media (max-width: 600px) { .pm-row { grid-template-columns: 1fr 64px; } .pm-row .in { grid-column: 1 / -1; } }
 
 .empty { padding: 40px 20px; text-align: center; color: var(--muted); }
@@ -295,9 +309,10 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
   <form method="dialog" id="pmForm">
     <div class="dlg-head">
       <h2>Rename &amp; group projects</h2>
-      <div class="hint">Type a new name for any folder. Folders with the same name are combined into one project. Leave a field empty to use the folder name.</div>
+      <div class="hint">Type a new name for any folder. Folders with the same name are combined into one project. Leave a field empty to use the folder name. Pick a color to fix a project's color; on Auto it keeps the color it was given.</div>
     </div>
     <div class="dlg-body" id="pmList"></div>
+    <div id="pmPal" role="menu" aria-label="Project color"></div>
     <datalist id="pmNames"></datalist>
     <div class="dlg-foot">
       <button type="button" class="link" id="pmReset">Clear all names</button>
@@ -312,7 +327,7 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
   const C = { day:0, hour:1, project:2, model:3, session:4, msgs:5, in:6, out:7, cr:8, cw:9, cost:10, c_in:11, c_out:12, c_cr:13, c_cw:14 };
   const SLOTS = ['--s1','--s2','--s3','--s4','--s5','--s6','--s7','--s8'];
   let RAW = null, DATA = null;
-  let projColor = {}, projName = {}, projRank = {}, projMembers = {}, rawToEff = {}, sessionsById = {}, modelColor = {}, modelOrder = [];
+  let projPref = {}, projOverride = {}, allRank = {}, view = { color: {}, rank: {} }, projName = {}, projMembers = {}, rawToEff = {}, sessionsById = {}, modelColor = {}, modelOrder = [];
   const store = { get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
   // cc.range2: bumped when Day became the default, so older saved ranges don't override it once
   let range = store.get('cc.range2', 'day');
@@ -419,7 +434,7 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
   function setup(raw) {
     RAW = raw;
     const al = aliases();
-    projName = {}; projColor = {}; projRank = {}; projMembers = {}; rawToEff = {}; sessionsById = {}; modelColor = {};
+    projName = {}; projPref = {}; projOverride = {}; allRank = {}; projMembers = {}; rawToEff = {}; sessionsById = {}; modelColor = {};
     // A project's identity is its display name: folders sharing a name merge.
     raw.projects.forEach(p => {
       defaultName[p.key] = p.name;
@@ -433,19 +448,24 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
     raw.sessions.forEach(s => sessionsById[s.id] = { ...s, project: rawToEff[s.project] || s.project });
     DATA = { ...raw, rows };
 
-    // Project colors follow the project (ranked by all-time spend) and stick across refreshes.
+    // Every project gets a preferred color: an override from config.json, else one remembered in
+    // this browser (seeded once, balanced across slots in order of all-time spend). Which projects
+    // actually show in color is decided per viewed period by assign().
     const tot = {};
     rows.forEach(r => tot[r[C.project]] = (tot[r[C.project]] || 0) + r[C.cost]);
-    const order = Object.keys(tot).sort((a, b) => tot[b] - tot[a]);
-    const n = order.length <= SLOTS.length ? order.length : SLOTS.length - 1;
-    const colored = order.slice(0, n);
+    Object.keys(tot).sort((a, b) => tot[b] - tot[a]).forEach((k, i) => allRank[k] = i);
+    const over = (raw.config && raw.config.colors) || {};
+    Object.entries(over).forEach(([name, s]) => { if (SLOTS.includes('--' + s)) projOverride['n:' + name] = '--' + s; });
     let saved = {};
     try { saved = JSON.parse(store.get('cc.colors2', '{}')) || {}; } catch {}
-    const used = new Set();
-    colored.forEach(k => { const s = saved[k]; if (SLOTS.slice(0, n).includes(s) && !used.has(s)) { projColor[k] = s; used.add(s); } });
-    colored.forEach(k => { if (!projColor[k]) { const s = SLOTS.slice(0, n).find(x => !used.has(x)); projColor[k] = s; used.add(s); } });
-    order.forEach((k, i) => { projRank[k] = i; if (!projColor[k]) projColor[k] = '--other'; });
-    store.set('cc.colors2', JSON.stringify(Object.fromEntries(colored.map(k => [k, projColor[k]]))));
+    const use = {};
+    Object.entries(saved).forEach(([k, s]) => { if (SLOTS.includes(s)) { projPref[k] = s; if (projName[k]) use[s] = (use[s] || 0) + 1; } });
+    Object.keys(projName).sort((a, b) => (allRank[a] ?? 1e9) - (allRank[b] ?? 1e9)).forEach(k => {
+      if (projPref[k]) return;
+      const s = SLOTS.reduce((m, x) => (use[x] || 0) < (use[m] || 0) ? x : m, SLOTS[0]);
+      projPref[k] = s; use[s] = (use[s] || 0) + 1;
+    });
+    store.set('cc.colors2', JSON.stringify(projPref));
 
     // Models: an ordinal ink ramp by tier (Fable → Opus → Sonnet → Haiku); versions within a tier, newest first.
     modelOrder = [...new Set(rows.map(r => r[C.model]))].sort((a, b) => {
@@ -461,10 +481,22 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
       modelColor[m] = t > 3 ? '--m5' : `--m${t + 1}-${Math.min(n, 3)}`;
     });
   }
-  const colorOf = k => projColor[k] || '--other';
-  const groupOf = k => projColor[k] === '--other' ? '__other' : k;
+  // Colors for one period: its top projects by spend get one, everything else is "Other" (gray).
+  // Overrides claim their color first, then remembered preferences; clashes take a free slot.
+  function assign(tot) {
+    const order = Object.keys(tot).filter(k => tot[k] > 0).sort((a, b) => tot[b] - tot[a] || (allRank[a] ?? 1e9) - (allRank[b] ?? 1e9));
+    const top = order.slice(0, SLOTS.length), color = {}, rank = {}, used = new Set();
+    for (const src of [projOverride, projPref])
+      top.forEach(k => { const s = src[k]; if (!color[k] && s && !used.has(s)) { color[k] = s; used.add(s); } });
+    top.forEach(k => { if (!color[k]) { const s = SLOTS.find(x => !used.has(x)); color[k] = s; used.add(s); } });
+    order.forEach((k, i) => rank[k] = i);
+    return { color, rank };
+  }
+  const colorOf = (k, a = view) => a.color[k] || '--other';
+  const groupOf = (k, a = view) => a.color[k] ? k : '__other';
   const groupName = g => g === '__other' ? 'Other projects' : projName[g];
-  const groupColor = g => g === '__other' ? '--other' : colorOf(g);
+  const groupColor = (g, a = view) => g === '__other' ? '--other' : colorOf(g, a);
+  const rankOf = (g, a = view) => g === '__other' ? 1e9 : a.rank[g] ?? 1e9;
 
   function firstDay() {
     return DATA.rows.length ? DATA.rows.reduce((m, r) => r[C.day] < m ? r[C.day] : m, DATA.rows[0][C.day]) : dayKey(new Date());
@@ -634,7 +666,6 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
       byB[k][g] = (byB[k][g] || 0) + r[C.cost];
       msgsB[k] += r[C.msgs];
     });
-    const rankOf = g => g === '__other' ? 999 : projRank[g];
     const gOrder = Object.keys(groups).sort((a, b) => rankOf(a) - rankOf(b));
     const totals = B.map(b => Object.values(byB[b.key]).reduce((a, c) => a + c, 0));
     const showAvg = win.gran === 'day' && win.elapsed.length >= 14;
@@ -823,21 +854,28 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
     rows.forEach(r => {
       for (const a of [bump(M, r[C.day].slice(0, 7)), bump(Y, r[C.day].slice(0, 4))]) {
         a.cost += r[C.cost]; a.days.add(r[C.day]); a.sessions.add(r[C.session]);
-        const g = groupOf(r[C.project]);
-        a.proj[g] = (a.proj[g] || 0) + r[C.cost];
+        a.proj[r[C.project]] = (a.proj[r[C.project]] || 0) + r[C.cost];
       }
     });
+    // each month and year is colored the way it looks when you open it (unaffected by the focus filter)
+    const PT = {};
+    allRows.forEach(r => {
+      for (const k of [r[C.day].slice(0, 7), r[C.day].slice(0, 4)]) { const t = PT[k] || (PT[k] = {}); t[r[C.project]] = (t[r[C.project]] || 0) + r[C.cost]; }
+    });
+    const asgOf = {};
+    const asg = k => asgOf[k] || (asgOf[k] = assign(PT[k] || {}));
+    const grouped = (a, A) => { const o = {}; for (const k in a.proj) { const g = groupOf(k, A); o[g] = (o[g] || 0) + a.proj[k]; } return o; };
     const now = new Date();
     const curM = monthKey(now), curY = String(now.getFullYear());
     const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const fracM = (now.getDate() - 1 + (now.getHours() * 60 + now.getMinutes()) / 1440) / dim;
     const startY = new Date(now.getFullYear(), 0, 1), endY = new Date(now.getFullYear() + 1, 0, 1);
     const fracY = (now - startY) / (endY - startY);
-    const rankOf = g => g === '__other' ? 999 : projRank[g];
 
-    const mixCell = (a, label) => {
-      const gs = Object.keys(a.proj).filter(g => a.proj[g] > 0).sort((x, y) => rankOf(x) - rankOf(y));
-      return `<div class="mixbar" data-tip="${esc(label)}">${gs.map(g => `<i style="flex:${(a.proj[g] / a.cost).toFixed(5)} 0 0;background:var(${groupColor(g)})"></i>`).join('')}</div>`;
+    const mixCell = (a, label, A) => {
+      const p = grouped(a, A);
+      const gs = Object.keys(p).filter(g => p[g] > 0).sort((x, y) => rankOf(x, A) - rankOf(y, A));
+      return `<div class="mixbar" data-tip="${esc(label)}">${gs.map(g => `<i style="flex:${(p[g] / a.cost).toFixed(5)} 0 0;background:var(${groupColor(g, A)})"></i>`).join('')}</div>`;
     };
     const first = firstDay();
     const change = (cur, prev, isCurrent, frac, periodStart) => {
@@ -852,14 +890,14 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
     let body = '';
     years.forEach(yk => {
       const a = Y[yk], isCur = yk === curY;
-      tips['y' + yk] = [yk + (isCur ? ' (so far)' : ''), a];
+      tips['y' + yk] = [yk + (isCur ? ' (so far)' : ''), a, asg(yk)];
       const sel = range === 'year' && anchorYear === yk;
-      body += `<tr class="year click ${sel ? 'sel' : ''}" data-y="${yk}"><td>${yk}${isCur ? ' <span class="muted" style="font-weight:400">so far</span>' : ''}</td><td class="num">${money(a.cost)}</td><td>${change(a.cost, Y[String(+yk - 1)]?.cost, isCur, fracY, yk + '-01-07')}</td><td class="num">${a.days.size}</td><td class="num">${money(a.cost / Math.max(1, a.days.size))}</td><td class="num">${a.sessions.size}</td><td>${mixCell(a, 'y' + yk)}</td></tr>`;
+      body += `<tr class="year click ${sel ? 'sel' : ''}" data-y="${yk}"><td>${yk}${isCur ? ' <span class="muted" style="font-weight:400">so far</span>' : ''}</td><td class="num">${money(a.cost)}</td><td>${change(a.cost, Y[String(+yk - 1)]?.cost, isCur, fracY, yk + '-01-07')}</td><td class="num">${a.days.size}</td><td class="num">${money(a.cost / Math.max(1, a.days.size))}</td><td class="num">${a.sessions.size}</td><td>${mixCell(a, 'y' + yk, asg(yk))}</td></tr>`;
       Object.keys(M).filter(mk => mk.startsWith(yk)).sort().reverse().forEach(mk => {
         const b = M[mk], isCurM = mk === curM;
-        tips['m' + mk] = [fmtMonth(mk) + (isCurM ? ' (so far)' : ''), b];
+        tips['m' + mk] = [fmtMonth(mk) + (isCurM ? ' (so far)' : ''), b, asg(mk)];
         const selM = range === 'month' && anchorMonth === mk;
-        body += `<tr class="month click ${selM ? 'sel' : ''}" data-m="${mk}"><td>${MONTHS_LONG[parseDay(mk + '-01').getMonth()]}${isCurM ? ' <span class="muted">so far</span>' : ''}</td><td class="num" style="font-weight:600">${money(b.cost)}</td><td>${change(b.cost, M[addMonths(mk, -1)]?.cost, isCurM, fracM, mk + '-03')}</td><td class="num">${b.days.size}</td><td class="num">${money(b.cost / Math.max(1, b.days.size))}</td><td class="num">${b.sessions.size}</td><td>${mixCell(b, 'm' + mk)}</td></tr>`;
+        body += `<tr class="month click ${selM ? 'sel' : ''}" data-m="${mk}"><td>${MONTHS_LONG[parseDay(mk + '-01').getMonth()]}${isCurM ? ' <span class="muted">so far</span>' : ''}</td><td class="num" style="font-weight:600">${money(b.cost)}</td><td>${change(b.cost, M[addMonths(mk, -1)]?.cost, isCurM, fracM, mk + '-03')}</td><td class="num">${b.days.size}</td><td class="num">${money(b.cost / Math.max(1, b.days.size))}</td><td class="num">${b.sessions.size}</td><td>${mixCell(b, 'm' + mk, asg(mk))}</td></tr>`;
       });
     });
     $('monthsHint').textContent = `${focus ? projName[focus] + ' · ' : ''}All time · click a month or year to view it`;
@@ -867,9 +905,10 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
     $('monthsTable').querySelectorAll('tr[data-m]').forEach(tr => tr.addEventListener('click', () => { range = 'month'; anchorMonth = tr.dataset.m; store.set('cc.range2', range); render(); scrollTo({ top: 0, behavior: 'smooth' }); }));
     $('monthsTable').querySelectorAll('tr[data-y]').forEach(tr => tr.addEventListener('click', () => { range = 'year'; anchorYear = tr.dataset.y; store.set('cc.range2', range); render(); scrollTo({ top: 0, behavior: 'smooth' }); }));
     bindTips($('monthsTable'), key => {
-      const [label, a] = tips[key];
-      const gs = Object.keys(a.proj).sort((x, y) => a.proj[y] - a.proj[x]);
-      return `<div class="th"><span>${esc(label)}</span><span>${money(a.cost)}</span></div>` + gs.map(g => `<div class="tr"><span class="l"><span class="dot" style="background:var(${groupColor(g)})"></span>${esc(groupName(g))}</span><span>${money(a.proj[g])}</span></div>`).join('');
+      const [label, a, A] = tips[key];
+      const p = grouped(a, A);
+      const gs = Object.keys(p).sort((x, y) => p[y] - p[x]);
+      return `<div class="th"><span>${esc(label)}</span><span>${money(a.cost)}</span></div>` + gs.map(g => `<div class="tr"><span class="l"><span class="dot" style="background:var(${groupColor(g, A)})"></span>${esc(groupName(g))}</span><span>${money(p[g])}</span></div>`).join('');
     });
   }
 
@@ -932,31 +971,74 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
       <div class="pm-row">
         <div style="min-width:0"><div class="nm">${esc(p.name)}</div><div class="path" title="${esc(p.key)}">&lrm;${esc(p.key === 'scratch' ? 'Claude desktop scratch workspaces' : p.key.replace(/^\/Users\/[^/]+/, '~'))}</div></div>
         <div class="cost">${money(tot[p.key] || 0)}</div>
-        <div class="in"><input data-i="${i}" list="pmNames" placeholder="${esc(p.name)}" value="${esc(al[p.key] || '')}" aria-label="Name for ${esc(p.name)}" autocomplete="off"><div class="grp" data-g="${i}"></div></div>
+        <div class="in"><div class="in-row"><input data-i="${i}" list="pmNames" placeholder="${esc(p.name)}" value="${esc(al[p.key] || '')}" aria-label="Name for ${esc(p.name)}" autocomplete="off"><button type="button" class="cbtn" data-c="${i}" aria-haspopup="menu"><i></i></button></div><div class="grp" data-g="${i}"></div></div>
       </div>`).join('');
     const inputs = [...$('pmList').querySelectorAll('input')];
+    const cbtns = [...$('pmList').querySelectorAll('.cbtn')];
+    const effName = i => inputs[i].value.trim() || projs[i].name;
+    // a color belongs to a project (its name), so folders that share a name share it
+    const over = (RAW.config && RAW.config.colors) || {};
+    const pick = projs.map((p, i) => over[effName(i)] ? '--' + over[effName(i)] : '');
+    const slotName = v => ['blue','orange','aqua','yellow','pink','green','violet','red'][SLOTS.indexOf(v)];
+    const paint = () => cbtns.forEach((b, i) => {
+      const auto = projPref['n:' + effName(i)];
+      const v = pick[i] || auto || '--other';
+      b.classList.toggle('auto', !pick[i]);
+      b.querySelector('i').style.background = `var(${v})`;
+      b.title = b.ariaLabel = `Color for ${effName(i)}: ${pick[i] ? slotName(pick[i]) : 'Auto' + (auto ? ` (${slotName(auto)})` : '')}`;
+    });
     const refreshGroups = () => {
-      const eff = inputs.map((inp, i) => inp.value.trim() || projs[i].name);
+      const eff = inputs.map((_, i) => effName(i));
       const count = {}; eff.forEach(n => count[n] = (count[n] || 0) + 1);
       inputs.forEach((inp, i) => { $('pmList').querySelector(`[data-g="${i}"]`).textContent = count[eff[i]] > 1 ? `Combined with ${count[eff[i]] - 1} other folder${count[eff[i]] > 2 ? 's' : ''}` : ''; });
+      // a folder joining a project takes on that project's color
+      inputs.forEach((_, i) => { const j = eff.findIndex((n, k) => k !== i && n === eff[i] && pick[k]); if (j >= 0) pick[i] = pick[j]; });
+      paint();
     };
     inputs.forEach(inp => inp.addEventListener('input', refreshGroups));
+    const pal = $('pmPal');
+    const closePal = () => { pal.classList.remove('on'); pal._i = null; };
+    cbtns.forEach((b, i) => b.addEventListener('click', e => {
+      e.stopPropagation();
+      if (pal._i === i) return closePal();
+      const auto = projPref['n:' + effName(i)];
+      pal.innerHTML = `<button type="button" class="auto" role="menuitemradio" aria-checked="${!pick[i]}" data-v=""><i style="background:var(${auto || '--other'})"></i>Auto</button>`
+        + `<div class="sw">${SLOTS.map(v => `<button type="button" role="menuitemradio" aria-checked="${pick[i] === v}" aria-label="${slotName(v)}" title="${slotName(v)}" data-v="${v}" style="background:var(${v})"></button>`).join('')}</div>`;
+      pal.querySelectorAll('button').forEach(o => o.addEventListener('click', () => {
+        const n = effName(i);
+        inputs.forEach((_, k) => { if (effName(k) === n) pick[k] = o.dataset.v; });
+        paint(); closePal(); b.focus();
+      }));
+      const d = $('pm').getBoundingClientRect(), r = b.getBoundingClientRect();
+      pal.classList.add('on'); pal._i = i;
+      const below = r.bottom + 6 + pal.offsetHeight < d.bottom - 8;
+      pal.style.left = (r.right - d.left - pal.offsetWidth + 1) + 'px';
+      pal.style.top = (below ? r.bottom - d.top + 6 : r.top - d.top - pal.offsetHeight - 6) + 'px';
+      pal.querySelector('[aria-checked="true"]').focus();
+    }));
+    $('pm').onclick = e => { if (!pal.contains(e.target)) closePal(); };
+    $('pmList').onscroll = closePal;
+    $('pm').onkeydown = e => { if (e.key === 'Escape' && pal.classList.contains('on')) { e.preventDefault(); closePal(); } };
+    closePal();
     refreshGroups();
     $('pm')._projs = projs;
+    $('pm')._pick = pick;
+    $('pm')._effName = effName;
     $('pm').showModal();
   }
 
   async function saveManager(e) {
     e.preventDefault();
-    const projs = $('pm')._projs;
-    const out = {};
+    const projs = $('pm')._projs, pick = $('pm')._pick, effName = $('pm')._effName;
+    const out = {}, colors = {};
     $('pmList').querySelectorAll('input').forEach((inp, i) => {
       const v = inp.value.trim();
       if (v && v !== projs[i].name) out[projs[i].key] = v;
+      if (pick[i] && !colors[effName(i)]) colors[effName(i)] = pick[i].slice(2);
     });
     $('pmSave').disabled = true;
     try {
-      const res = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projects: out }) });
+      const res = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projects: out, colors }) });
       if (!res.ok) throw new Error(res.status);
       RAW.config = await res.json();
       const prevFocusName = focus && projName[focus];
@@ -965,7 +1047,7 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
       render();
       $('pm').close();
     } catch (err) {
-      alert('Could not save project names: ' + err.message);
+      alert('Could not save project settings: ' + err.message);
     } finally { $('pmSave').disabled = false; }
   }
 
@@ -1001,6 +1083,11 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
   function render() {
     renderControls();
     if (!DATA) return;
+    const win = window_();
+    const inWin = DATA.rows.filter(r => r[C.day] >= win.start && r[C.day] <= win.end);
+    const vt = {};
+    inWin.forEach(r => vt[r[C.project]] = (vt[r[C.project]] || 0) + r[C.cost]);
+    view = assign(vt);
     const chip = $('filterChip');
     chip.classList.toggle('on', !!focus);
     if (focus) { $('filterName').textContent = projName[focus]; $('filterDot').style.background = `var(${colorOf(focus)})`; }
@@ -1009,8 +1096,6 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
       $('app').innerHTML = `<div class="card empty">No Claude Code usage found in <code>${esc(DATA.source)}</code>.</div>`;
       return;
     }
-    const win = window_();
-    const inWin = DATA.rows.filter(r => r[C.day] >= win.start && r[C.day] <= win.end);
     const rows = inWin.filter(inProj);
     renderKpis(rows, win, DATA.rows);
     renderDaily(rows, win);
@@ -1039,7 +1124,7 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
       if (focus && !projName[focus]) focus = null;
       render(); setStatus();
       const unk = DATA.unknown_models.length ? `<br>Estimated with a fallback price: ${DATA.unknown_models.map(esc).join(', ')}.` : '';
-      $('foot').innerHTML = `Costs are computed from the token <code>usage</code> recorded in every assistant message under <code>${esc(DATA.source)}</code>, priced at Anthropic API list rates (cache writes at 1.25× input for 5-minute and 2× for 1-hour TTL; fast mode at 2×). On a Pro/Max subscription this is the API-equivalent value, not what you are billed. Project names are saved in <code>config.json</code> next to <code>server.py</code>. Auto-refreshes every minute.${unk}`;
+      $('foot').innerHTML = `Costs are computed from the token <code>usage</code> recorded in every assistant message under <code>${esc(DATA.source)}</code>, priced at Anthropic API list rates (cache writes at 1.25× input for 5-minute and 2× for 1-hour TTL; fast mode at 2×). On a Pro/Max subscription this is the API-equivalent value, not what you are billed. Project names and colors are saved in <code>config.json</code> next to <code>server.py</code>. Auto-refreshes every minute.${unk}`;
     } catch (e) {
       $('status').textContent = 'Could not read usage data — is server.py running?';
       $('live').classList.add('stale');
