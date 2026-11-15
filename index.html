@@ -24,6 +24,11 @@
   --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
   --other: #b4b2a9;
   --m1: #1f1e1b; --m2: #5d5b55; --m3: #8f8c84; --m4: #b9b6ad; --m5: #d6d3ca;
+  /* model tiers: 1st version = tier shade, 2nd = 25% toward next tier, 3rd+ = 50% */
+  --m1-1: #1f1e1b; --m1-2: #2f2d2a; --m1-3: #3e3d38;
+  --m2-1: #5d5b55; --m2-2: #6a6761; --m2-3: #76746d;
+  --m3-1: #8f8c84; --m3-2: #9a978e; --m3-3: #a4a199;
+  --m4-1: #b9b6ad; --m4-2: #c0bdb4; --m4-3: #c8c5bc;
   --heat: 42,120,214;
   --accent: #2a78d6;
   --chip: #ecebe6;
@@ -41,6 +46,10 @@
     --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
     --other: #5f5e59;
     --m1: #f0efec; --m2: #c3c2b7; --m3: #96948b; --m4: #6b6a64; --m5: #4a4945;
+    --m1-1: #f0efec; --m1-2: #e5e4df; --m1-3: #dad9d2;
+    --m2-1: #c3c2b7; --m2-2: #b8b7ac; --m2-3: #adaba1;
+    --m3-1: #96948b; --m3-2: #8b8a81; --m3-3: #817f78;
+    --m4-1: #6b6a64; --m4-2: #63625c; --m4-3: #5b5a55;
     --heat: 57,135,229; --accent: #3987e5; --chip: #2c2c2a;
     --tip-bg: #f0efec; --tip-ink: #0b0b0b; --tip-muted: #52514e;
     --backdrop: rgba(0,0,0,0.6);
@@ -56,6 +65,10 @@
   --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
   --other: #5f5e59;
   --m1: #f0efec; --m2: #c3c2b7; --m3: #96948b; --m4: #6b6a64; --m5: #4a4945;
+  --m1-1: #f0efec; --m1-2: #e5e4df; --m1-3: #dad9d2;
+  --m2-1: #c3c2b7; --m2-2: #b8b7ac; --m2-3: #adaba1;
+  --m3-1: #96948b; --m3-2: #8b8a81; --m3-3: #817f78;
+  --m4-1: #6b6a64; --m4-2: #63625c; --m4-3: #5b5a55;
   --heat: 57,135,229; --accent: #3987e5; --chip: #2c2c2a;
   --tip-bg: #f0efec; --tip-ink: #0b0b0b; --tip-muted: #52514e;
   --backdrop: rgba(0,0,0,0.6);
@@ -298,7 +311,6 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
   // ------------------------------------------------------------------ state
   const C = { day:0, hour:1, project:2, model:3, session:4, msgs:5, in:6, out:7, cr:8, cw:9, cost:10, c_in:11, c_out:12, c_cr:13, c_cw:14 };
   const SLOTS = ['--s1','--s2','--s3','--s4','--s5','--s6','--s7','--s8'];
-  const MSTEPS = ['--m1','--m2','--m3','--m4','--m5'];
   let RAW = null, DATA = null;
   let projColor = {}, projName = {}, projRank = {}, projMembers = {}, rawToEff = {}, sessionsById = {}, modelColor = {}, modelOrder = [];
   const store = { get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
@@ -435,13 +447,19 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
     order.forEach((k, i) => { projRank[k] = i; if (!projColor[k]) projColor[k] = '--other'; });
     store.set('cc.colors2', JSON.stringify(Object.fromEntries(colored.map(k => [k, projColor[k]]))));
 
-    // Models: an ordinal ink ramp by tier (Fable → Opus → Sonnet → Haiku), newest first.
+    // Models: an ordinal ink ramp by tier (Fable → Opus → Sonnet → Haiku); versions within a tier, newest first.
     modelOrder = [...new Set(rows.map(r => r[C.model]))].sort((a, b) => {
       const ka = modelSortKey(a), kb = modelSortKey(b);
       for (let i = 0; i < 3; i++) if (ka[i] !== kb[i]) return ka[i] - kb[i];
       return a.localeCompare(b);
     });
-    modelOrder.forEach((m, i) => modelColor[m] = MSTEPS[Math.min(i, MSTEPS.length - 1)]);
+    // Shade = tier; older versions within a tier step up to 50% toward the next tier.
+    const seen = {};
+    modelOrder.forEach(m => {
+      const t = modelSortKey(m)[0];
+      const n = seen[t] = (seen[t] || 0) + 1;
+      modelColor[m] = t > 3 ? '--m5' : `--m${t + 1}-${Math.min(n, 3)}`;
+    });
   }
   const colorOf = k => projColor[k] || '--other';
   const groupOf = k => projColor[k] === '--other' ? '__other' : k;
