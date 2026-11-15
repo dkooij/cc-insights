@@ -7,6 +7,11 @@ read live from the session logs in `~/.claude/projects`.
 python3 server.py --open      # http://127.0.0.1:8787
 ```
 
+To use it as a Mac app, run `./install-app.sh` once (needs the Xcode command line tools).
+It builds `~/Applications/CC Insights.app`, a native window around the dashboard: opening
+it starts the server, quitting it (Cmd+Q or closing the window) stops the server.
+If the server is already running, the app uses it and leaves it running.
+
 No dependencies beyond Python 3.10+. The page re-reads the logs every minute (and on
 Refresh / window focus); unchanged log files are cached, so a refresh takes ~50 ms.
 

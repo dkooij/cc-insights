@@ -56,6 +56,8 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         if path in ("/", "/index.html"):
             self._send(200, (ROOT / "index.html").read_bytes(), "text/html; charset=utf-8")
+        elif path in ("/favicon.svg", "/favicon.ico"):
+            self._send(200, (ROOT / "app" / "icon.svg").read_bytes(), "image/svg+xml")
         elif path == "/api/data":
             with _lock:
                 data = cc_usage.collect()
