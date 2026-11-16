@@ -511,10 +511,14 @@ footer code { font-size: 11.5px; background: var(--chip); padding: 1px 5px; bord
     const hourNow = live ? new Date().getHours() : 23;
     if (range === 'day') {
       start = end = parseDay(anchorDay);
-      prevStart = prevEnd = addDays(start, -1);
+      // compare with the last active day before this one, not simply the calendar day before
+      let lastActive = null;
+      for (const r of DATA.rows) if (inProj(r) && r[C.cost] > 0 && r[C.day] < anchorDay && (!lastActive || r[C.day] > lastActive)) lastActive = r[C.day];
+      prevStart = prevEnd = lastActive ? parseDay(lastActive) : addDays(start, -1);
+      const prevIsYday = dayKey(prevStart) === dayKey(addDays(start, -1));
       label = live ? 'today' : anchorDay === dayKey(addDays(today, -1)) ? 'yesterday' : fmtDayLong(anchorDay);
       // today is compared with yesterday up to the same hour
-      if (live) { prevHour = hourNow; prevLabel = `yesterday by ${hh(hourNow + 1)}`; }
+      if (live) { prevHour = hourNow; prevLabel = `${prevIsYday ? 'yesterday' : fmtDayLong(dayKey(prevStart))} by ${hh(hourNow + 1)}`; }
       else prevLabel = fmtDayLong(dayKey(prevStart));
     } else if (range === 'week') {
       start = parseDay(anchorWeek); end = addDays(start, 6);
